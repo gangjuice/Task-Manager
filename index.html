@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사내 업무 관리 프로그램</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    
+    <style>
+        /* 기본 스타일 및 리셋 */
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
+        h1, h2 { color: #2c3e50; }
+        
+        /* 헤더 영역 */
+        .header-container { display: flex; justify-content: flex-start; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .btn-new-task { background-color: #2ecc71; padding: 10px 18px; font-size: 14px; font-weight: bold; color: #fff; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: background-color 0.2s; }
+        .btn-new-task:hover { background-color: #27ae60; }
+
+        /* 입력 폼 영역 */
+        .form-container { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; border-top: 4px solid #2ecc71; position: relative; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #555; }
+        input[type="text"], input[type="date"], select, textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit; }
+        button { padding: 10px 15px; background-color: #3498db; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: background-color 0.2s; }
+        button:hover { background-color: #2980b9; }
+
+        /* 탭 영역 */
+        .tabs { display: flex; border-bottom: 2px solid #3498db; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 20px; background: #ecf0f1; border: none; border-top-left-radius: 5px; border-top-right-radius: 5px; margin-right: 5px; cursor: pointer; font-size: 15px; font-weight: bold; color: #7f8c8d; }
+        .tab-btn.active { background: #3498db; color: #fff; }
+
+        /* 콘텐츠 영역 */
+        .tab-content { display: none; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .tab-content.active { display: block; }
+
+        /* 위젯 모드용 가로 스크롤 컨테이너 */
+        .table-responsive { overflow-x: auto; width: 100%; border-radius: 4px; border: 1px solid #ddd; }
+
+        /* 테이블 영역 */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; min-width: 1000px; }
+        th, td { border: 1px solid #ddd; padding: 10px; }
+        th { background-color: #f8f9fa; color: #333; position: relative; }
+        tr:hover { background-color: #f1f1f1; }
+        th.sortable:hover { background-color: #e2e6ea; }
+        .filter-icon { font-size: 10px; color: #3498db; margin-left: 5px; display: none; }
+
+        /* 우클릭 팝업 (컨텍스트 메뉴) 스타일 */
+        .context-menu { display: none; position: absolute; z-index: 1000; background-color: #fff; border: 1px solid #ccc; border-radius: 5px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); min-width: 130px; overflow: hidden; }
+        .context-menu ul { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
+        .context-menu li { padding: 10px 15px; cursor: pointer; font-size: 13px; font-weight: bold; font-family: 'Malgun Gothic', sans-serif; color: #333; border-bottom: 1px solid #eee; }
+        .context-menu li:last-child { border-bottom: none; }
+        .context-menu li:hover { background-color: #f4f7f6; }
+        .context-menu li.delete-btn { color: #e74c3c; }
+        .context-menu li.delete-btn:hover { background-color: #fceceb; }
+        .context-menu li.edit-btn { color: #3498db; }
+        .context-menu li.edit-btn:hover { background-color: #ebf5fb; }
+
+        /* 팝업 편집창 (모달) 스타일 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .modal-header h2 { margin: 0; font-size: 18px; }
+        .btn-close { background: transparent; color: #7f8c8d; font-size: 20px; padding: 0; margin: 0; border: none; cursor: pointer; }
+        .btn-close:hover { color: #e74c3c; background: transparent; }
+
+        /* 캘린더 영역 */
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .calendar-day-header { background: #eef2f5; font-weight: bold; text-align: center; padding: 10px 0; }
+        .calendar-day { background: #fff; border: 1px solid #ddd; min-height: 100px; padding: 5px; border-radius: 4px; position: relative; }
+        .calendar-day.today-highlight { background-color: #fffff0; border: 2px solid #3498db; }
+        .calendar-date { font-weight: bold; font-size: 14px; color: #555; display: block; margin-bottom: 5px; }
+        .cal-task { background: #e74c3c; color: #fff; font-size: 11px; padding: 2px 5px; border-radius: 3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cal-task.done { background: #2ecc71; text-decoration: line-through; opacity: 0.7; }
+
+        /* 메모장 영역 */
+        #memoPad { width: 100%; height: 400px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: 'Malgun Gothic', sans-serif; resize: vertical; box-sizing: border-box; line-height: 1.6; }
+
+        /* 설정 탭 전용 스타일 */
+        .setting-section { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
+        .setting-section h3 { margin-top: 0; color: #2c3e50; font-size: 16px; margin-bottom: 15px; }
+        .setting-list { list-style: none; padding: 0; margin: 0; max-width: 400px; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+        .setting-item button { padding: 4px 8px; font-size: 12px; background: #e74c3c; }
+    </style>
+</head>
+<body>
+
+    <div id="rowContextMenu" class="context-menu">
+        <ul>
+            <li class="edit-btn" onclick="openEditModal()">✏️ 수정하기</li>
+            <li class="delete-btn" onclick="executeDelete()">🗑️ 삭제하기</li>
+        </ul>
+    </div>
+
+    <div id="headerContextMenu" class="context-menu">
+        <ul id="filterOptionsList"></ul>
+    </div>
+
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ 업무 내용 수정</h2>
+                <button class="btn-close" onclick="closeEditModal()">✖</button>
+            </div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>업무 내용</label>
+                    <input type="text" id="edit_content">
+                </div>
+                <div class="form-group">
+                    <label>마감기한</label>
+                    <input type="date" id="edit_dueDate">
+                </div>
+                <div class="form-group">
+                    <label>분류</label>
+                    <select id="edit_category"></select>
+                </div>
+                <div class="form-group">
+                    <label>첫 행동</label>
+                    <input type="text" id="edit_firstAction">
+                </div>
+                <div class="form-group">
+                    <label>소요 시간</label>
+                    <input type="text" id="edit_timeReq">
+                </div>
+                <div class="form-group">
+                    <label>중요도</label>
+                    <select id="edit_importance"><option>높음</option><option>낮음</option></select>
+                </div>
+                <div class="form-group">
+                    <label>긴급도</label>
+                    <select id="edit_urgency"><option>높음</option><option>낮음</option></select>
+                </div>
+                <div class="form-group full-width">
+                    <label>비고</label>
+                    <input type="text" id="edit_remarks">
+                </div>
+                <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeEditModal()">취소</button>
+                    <button type="button" style="background:#2ecc71; width:150px;" onclick="saveEditedTask()">저장하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="header-container">
+        <h1 style="margin: 0;">🚀 업무 관리 대시보드</h1>
+        <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
+    </div>
+
+    <div class="form-container" id="taskFormContainer" style="display: none;">
+        <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
+        <h2 style="margin-top: 0; margin-bottom: 20px; color: #2c3e50;">📝 신규 업무 입력</h2>
+        <form id="taskForm" class="form-grid">
+            <div class="form-group full-width">
+                <label for="content">업무 내용</label>
+                <input type="text" id="content" required placeholder="해야 할 업무를 간략히 입력하세요">
+            </div>
+            <div class="form-group">
+                <label for="dueDate">마감기한</label>
+                <input type="date" id="dueDate">
+            </div>
+            <div class="form-group">
+                <label for="category">분류</label>
+                <select id="category"></select>
+            </div>
+            <div class="form-group">
+                <label for="firstAction">가장 작은 첫 행동</label>
+                <input type="text" id="firstAction" placeholder="ex) 담당자 연락처 검색">
+            </div>
+            <div class="form-group">
+                <label for="timeReq">소요 시간</label>
+                <input type="text" id="timeReq" placeholder="ex) 30분, 2시간">
+            </div>
+            <div class="form-group">
+                <label for="importance">중요도</label>
+                <select id="importance">
+                    <option value="높음">높음</option>
+                    <option value="낮음">낮음</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="urgency">긴급도</label>
+                <select id="urgency">
+                    <option value="높음">높음</option>
+                    <option value="낮음">낮음</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label for="remarks">비고</label>
+                <input type="text" id="remarks" placeholder="기타 참고사항">
+            </div>
+            <div class="form-group full-width" style="display: flex; justify-content: flex-end;">
+                <button type="submit" style="width: 200px; background-color: #2c3e50;">✔ 등록 완료하기</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="tabs">
+        <button type="button" class="tab-btn active" onclick="switchTab(event, 'dashboard')">대시보드</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'brainstorm')">생각나는대로 적기</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">마스터 리스트</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'today')">오늘 할 일</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'completed')">✅ 완료</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
+    </div>
+
+    <div id="dashboard" class="tab-content active">
+        <div class="calendar-header">
+            <h2 id="calMonthText"></h2>
+            <div>
+                <button type="button" onclick="changeMonth(-1)">◀ 이전 달</button>
+                <button type="button" onclick="changeMonth(1)">다음 달 ▶</button>
+            </div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+
+    <div id="brainstorm" class="tab-content">
+        <h2>💡 생각나는대로 적기 (자유 메모장)</h2>
+        <textarea id="memoPad" placeholder="아이디어나 회의 내용, 낙서 등을 자유롭게 적어보세요. 입력 시 자동으로 저장됩니다."></textarea>
+    </div>
+
+    <div id="master" class="tab-content">
+        <h2>📋 마스터 리스트 (진행중인 전체 업무) <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</span></h2>
+        <div class="table-responsive" id="masterTableContainer"></div>
+    </div>
+
+    <div id="today" class="tab-content">
+        <h2>🔥 오늘 할 일 (마스터 리스트에서 체크한 항목)</h2>
+        <div class="table-responsive" id="todayTableContainer"></div>
+    </div>
+
+    <div id="completed" class="tab-content">
+        <h2>✅ 완료된 업무 모아보기</h2>
+        <div class="table-responsive" id="completedTableContainer"></div>
+    </div>
+
+    <div id="settings" class="tab-content">
+        <h2>⚙️ 설정 및 데이터 관리</h2>
+        <div class="setting-section">
+            <h3>🏷️ 분류(Category) 관리</h3>
+            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <input type="text" id="newCategoryInput" placeholder="새로운 분류명 입력" style="width: 250px;">
+                <button type="button" onclick="addCategory()" style="background-color: #2ecc71;">추가</button>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+            <ul class="setting-list" id="categoryListContainer"></ul>
+        </div>
+        <div class="setting-section">
+            <h3>💾 수동 백업 및 복구 (타 PC 이동용)</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
+                ※ 현재 데이터는 "내 문서" 폴더에 자동 저장되고 있습니다. 다른 PC로 데이터를 옮길 때만 아래 기능을 사용하세요.
+            </p>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" onclick="exportData()" style="background-color: #f39c12;">📤 수동 백업 (.json)</button>
+                <span style="color: #ccc;">|</span>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importData(event)">
+                <button type="button" onclick="document.getElementById('importFileInput').click()" style="background-color: #9b59b6;">📥 백업 파일 불러오기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 📌 Electron 백엔드와 통신하기 위한 도구 불러오기
+        const { ipcRenderer } = require('electron');
+
+        // === [상태 및 변수 관리] ===
+        let tasks = [];
+        let categories = ["단가공사", "총가공사", "자료/공문 제출", "민원대응/단순연락", "기타"];
+        let savedMemo = "";
+        
+        let currentDate = new Date(); 
+        let activeFilters = { masterTable: {}, todayTable: {}, completedTable: {} };
+
+        // === [초기화: PC 폴더에서 데이터 불러오기] ===
+        async function initApp() {
+            const rawData = await ipcRenderer.invoke('load-data');
+            if (rawData) {
+                try {
+                    const parsed = JSON.parse(rawData);
+                    if (parsed.tasks) tasks = parsed.tasks;
+                    if (parsed.categories) categories = parsed.categories;
+                    if (parsed.memoPadData !== undefined) savedMemo = parsed.memoPadData;
+                } catch(e) {
+                    console.error("데이터 파싱 중 오류 발생:", e);
+                }
+            }
+            
+            document.getElementById('memoPad').value = savedMemo;
+            renderCategories();
+            renderAllTables();
+            renderCalendar();
+        }
+
+        // === [핵심: 자동 저장 엔진] ===
+        function updateAndSave() {
+            // 변경된 데이터를 묶어서 main.js로 보냄 -> 알림창 없이 PC에 즉시 덮어쓰기 완료!
+            const backupData = {
+                tasks: tasks,
+                categories: categories,
+                memoPadData: document.getElementById('memoPad').value
+            };
+            ipcRenderer.send('save-data', JSON.stringify(backupData));
+            
+            renderAllTables();
+            renderCalendar();
+        }
+
+        // === [공통 유틸 함수] ===
+        function getTodayString() {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000; 
+            return (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
+        }
+
+        function getPriority(importance, urgency) {
+            if(importance === '높음' && urgency === '높음') return 1;
+            if(importance === '낮음' && urgency === '높음') return 2;
+            if(importance === '높음' && urgency === '낮음') return 3;
+            return 4;
+        }
+
+        function getDdayInfo(dueDate) {
+            if(!dueDate) return { text: '-', color: 'black' };
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const target = new Date(dueDate);
+            const diffTime = target - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            let text = '';
+            let color = 'black';
+            if(diffDays > 0) {
+                text = `D-${diffDays}`;
+                if(diffDays < 3) color = '#f39c12'; 
+            } else if(diffDays === 0) {
+                text = `D-day`; color = '#e74c3c'; 
+            } else {
+                text = `D+${Math.abs(diffDays)}`; color = '#e74c3c'; 
+            }
+            return { text, color };
+        }
+
+        // === [입력창 토글 기능] ===
+        function toggleTaskForm() {
+            const formContainer = document.getElementById('taskFormContainer');
+            if (formContainer.style.display === 'none' || formContainer.style.display === '') {
+                formContainer.style.display = 'block';
+                document.getElementById('content').focus();
+            } else {
+                formContainer.style.display = 'none';
+            }
+        }
+
+        // === [컨텍스트 메뉴 (우클릭 팝업) 처리] ===
+        let contextTargetId = null; 
+        let contextTargetTable = null;
+        let contextTargetCol = null;
+        
+        const rowMenu = document.getElementById('rowContextMenu');
+        const headerMenu = document.getElementById('headerContextMenu');
+
+        function showRowMenu(e, id) {
+            e.preventDefault(); 
+            contextTargetId = id;
+            headerMenu.style.display = 'none';
+            rowMenu.style.display = 'block';
+            rowMenu.style.left = e.pageX + 'px';
+            rowMenu.style.top = e.pageY + 'px';
+        }
+
+        function showHeaderMenu(e, tableId, colIndex) {
+            e.preventDefault();
+            rowMenu.style.display = 'none';
+            contextTargetTable = tableId;
+            contextTargetCol = colIndex;
+            
+            const list = document.getElementById('filterOptionsList');
+            list.innerHTML = '';
+            
+            const table = document.getElementById(tableId);
+            const rows = table.querySelectorAll('tbody tr');
+            const uniqueVals = new Set();
+            
+            rows.forEach(row => {
+                const td = row.querySelectorAll('td')[colIndex];
+                if(td) {
+                    let text = td.innerText.trim();
+                    if(text && text !== '-') uniqueVals.add(text);
+                }
+            });
+
+            let liAll = document.createElement('li');
+            liAll.innerHTML = '✅ <b>필터 해제 (전체보기)</b>';
+            liAll.onclick = () => { applyFilter('전체'); };
+            list.appendChild(liAll);
+
+            const sortedVals = Array.from(uniqueVals).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+            sortedVals.forEach(val => {
+                let li = document.createElement('li');
+                li.innerText = val;
+                li.onclick = () => { applyFilter(val); };
+                list.appendChild(li);
+            });
+
+            headerMenu.style.display = 'block';
+            headerMenu.style.left = e.pageX + 'px';
+            headerMenu.style.top = e.pageY + 'px';
+        }
+
+        window.addEventListener('click', function(e) {
+            rowMenu.style.display = 'none';
+            headerMenu.style.display = 'none';
+        });
+
+        function applyFilter(value) {
+            if(!contextTargetTable) return;
+            activeFilters[contextTargetTable][contextTargetCol] = value;
+            
+            const table = document.getElementById(contextTargetTable);
+            const rows = table.querySelectorAll("tbody tr");
+            
+            const th = table.querySelectorAll("thead th")[contextTargetCol];
+            const icon = th.querySelector('.filter-icon');
+            if(icon) {
+                icon.style.display = (value === '전체') ? 'none' : 'inline';
+            }
+
+            rows.forEach(row => {
+                let show = true;
+                for (let col in activeFilters[contextTargetTable]) {
+                    let filterVal = activeFilters[contextTargetTable][col];
+                    if(filterVal && filterVal !== "전체") {
+                        const td = row.querySelectorAll("td")[col];
+                        if(td && td.innerText.trim() !== filterVal) {
+                            show = false;
+                        }
+                    }
+                }
+                row.style.display = show ? "" : "none";
+            });
+        }
+
+        // === [팝업 수정창 (모달) 로직] ===
+        const editModal = document.getElementById('editModal');
+        
+        function openEditModal() {
+            if(!contextTargetId) return;
+            const task = tasks.find(t => t.id === contextTargetId);
+            if(task) {
+                const catSelect = document.getElementById('edit_category');
+                catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                
+                document.getElementById('edit_content').value = task.content || '';
+                document.getElementById('edit_dueDate').value = task.dueDate || '';
+                document.getElementById('edit_category').value = task.category || '';
+                document.getElementById('edit_firstAction').value = task.firstAction || '';
+                document.getElementById('edit_timeReq').value = task.timeReq || '';
+                document.getElementById('edit_importance').value = task.importance || '높음';
+                document.getElementById('edit_urgency').value = task.urgency || '높음';
+                document.getElementById('edit_remarks').value = task.remarks || '';
+                
+                editModal.style.display = 'flex';
+            }
+        }
+
+        function closeEditModal() {
+            editModal.style.display = 'none';
+            contextTargetId = null;
+        }
+
+        function saveEditedTask() {
+            if(!contextTargetId) return;
+            const task = tasks.find(t => t.id === contextTargetId);
+            if(task) {
+                task.content = document.getElementById('edit_content').value;
+                task.dueDate = document.getElementById('edit_dueDate').value;
+                task.category = document.getElementById('edit_category').value;
+                task.firstAction = document.getElementById('edit_firstAction').value;
+                task.timeReq = document.getElementById('edit_timeReq').value;
+                task.importance = document.getElementById('edit_importance').value;
+                task.urgency = document.getElementById('edit_urgency').value;
+                task.remarks = document.getElementById('edit_remarks').value;
+                task.priority = getPriority(task.importance, task.urgency);
+
+                updateAndSave();
+                closeEditModal();
+            }
+        }
+
+        function executeDelete() {
+            if(contextTargetId) {
+                if(confirm("이 업무를 영구적으로 삭제하시겠습니까?")) {
+                    tasks = tasks.filter(t => t.id !== contextTargetId);
+                    updateAndSave();
+                }
+                contextTargetId = null;
+            }
+        }
+
+        // === [테이블 렌더링 및 기능] ===
+        function completeTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if(task) {
+                task.status = '완료됨';
+                task.isTodayTask = false; 
+                updateAndSave();
+            }
+        }
+
+        let sortDirections = {};
+        function sortTableDOM(tableId, colIndex) {
+            const table = document.getElementById(tableId);
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            
+            const key = tableId + '-' + colIndex;
+            let dir = sortDirections[key] === 'asc' ? 'desc' : 'asc';
+            sortDirections[key] = dir;
+
+            rows.sort((a, b) => {
+                const aCol = a.querySelectorAll("td")[colIndex];
+                const bCol = b.querySelectorAll("td")[colIndex];
+                let aVal = aCol ? aCol.innerText.trim() : '';
+                let bVal = bCol ? bCol.innerText.trim() : '';
+
+                if(aVal.startsWith('D-') || aVal.startsWith('D+') || aVal === 'D-day') {
+                    let aNum = aVal === 'D-day' ? 0 : parseInt(aVal.replace('D', ''));
+                    let bNum = bVal === 'D-day' ? 0 : parseInt(bVal.replace('D', ''));
+                    return dir === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                if(aVal.includes('순위') || (!isNaN(aVal) && aVal !== '')) {
+                    let aNum = Number(aVal.replace(/[^0-9.-]+/g,""));
+                    let bNum = Number(bVal.replace(/[^0-9.-]+/g,""));
+                    return dir === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                return dir === 'asc' ? aVal.localeCompare(bVal, undefined, {numeric:true}) : bVal.localeCompare(aVal, undefined, {numeric:true});
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function generateTableHTML(dataList, showCheckbox = false, tableId, isCompletedTab = false) {
+            if(dataList.length === 0) return "<p style='padding: 10px; color:#7f8c8d;'>해당되는 업무가 없습니다.</p>";
+            
+            let cOffset = showCheckbox ? 1 : 0; 
+            let cols = [
+                { name: "등록일", w: "80px" },
+                { name: "마감기한", w: "100px" },
+                { name: "D-day", w: "60px" },
+                { name: "내용", w: "auto" },
+                { name: "분류", w: "110px" },
+                { name: "가장 작은 첫 행동", w: "130px" },
+                { name: "중요도", w: "70px" },
+                { name: "긴급도", w: "70px" },
+                { name: "우선순위", w: "70px" },
+                { name: "소요 시간", w: "80px" },
+                { name: "비고", w: "auto" }
+            ];
+            
+            let html = `
+            <table id="${tableId}">
+                <thead>
+                    <tr>
+                        ${showCheckbox ? `<th style="width:40px;">오늘할일</th>` : ''}
+                        ${cols.map((c, i) => `
+                            <th class="sortable" style="cursor:pointer; width:${c.w};" 
+                                onclick="sortTableDOM('${tableId}', ${i + cOffset})" 
+                                oncontextmenu="showHeaderMenu(event, '${tableId}', ${i + cOffset})"
+                                title="좌클릭: 정렬 ↕ / 우클릭: 필터 ▽">
+                                ${c.name} <span class="filter-icon">▼</span>
+                            </th>`).join('')}
+                        <th style="width:50px;">완료/삭제</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            
+            dataList.forEach(t => {
+                const dDayInfo = getDdayInfo(t.dueDate);
+                html += `
+                    <tr oncontextmenu="showRowMenu(event, ${t.id})">
+                        ${showCheckbox ? `<td><input type="checkbox" onchange="toggleTodayTask(${t.id}, this)" ${t.isTodayTask ? 'checked' : ''}></td>` : ''}
+                        <td>${t.regDate}</td>
+                        <td>${t.dueDate || '-'}</td>
+                        <td style="color: ${dDayInfo.color};"><b>${dDayInfo.text}</b></td>
+                        <td style="text-align: left; font-weight:bold;">${t.content || ''}</td>
+                        <td>${t.category}</td>
+                        <td>${t.firstAction || '-'}</td>
+                        <td>${t.importance}</td>
+                        <td>${t.urgency}</td>
+                        <td><b>${t.priority}순위</b></td>
+                        <td>${t.timeReq || '-'}</td>
+                        <td style="text-align: left;">${t.remarks || '-'}</td>
+                        <td>
+                            ${isCompletedTab 
+                                ? `<button type="button" style="padding:4px 8px; font-size:11px; background:#e74c3c; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="deleteTaskDirect(${t.id})">삭제</button>`
+                                : `<button type="button" style="padding:4px 8px; font-size:11px; background:#2ecc71; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="completeTask(${t.id})">완료</button>`
+                            }
+                        </td>
+                    </tr>`;
+            });
+            html += `</tbody></table>`;
+            return html;
+        }
+
+        function deleteTaskDirect(id) {
+            if(confirm("이 업무를 영구적으로 삭제하시겠습니까?")) {
+                tasks = tasks.filter(t => t.id !== id);
+                updateAndSave();
+            }
+        }
+
+        function renderAllTables() {
+            let sortedTasks = [...tasks].sort((a, b) => {
+                const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 2145916800000;
+                const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 2145916800000;
+                return (a.priority - b.priority) || (dateA - dateB);
+            });
+
+            let activeTasks = sortedTasks.filter(t => t.status !== '완료됨');
+            let completedTasks = sortedTasks.filter(t => t.status === '완료됨');
+            let todayTasks = activeTasks.filter(t => t.isTodayTask);
+
+            document.getElementById('masterTableContainer').innerHTML = generateTableHTML(activeTasks, true, 'masterTable', false);
+            document.getElementById('todayTableContainer').innerHTML = generateTableHTML(todayTasks, false, 'todayTable', false);
+            document.getElementById('completedTableContainer').innerHTML = generateTableHTML(completedTasks, false, 'completedTable', true);
+
+            ['masterTable', 'todayTable', 'completedTable'].forEach(tableId => {
+                const table = document.getElementById(tableId);
+                if(table && activeFilters[tableId]) {
+                    const rows = table.querySelectorAll("tbody tr");
+                    rows.forEach(row => {
+                        let show = true;
+                        for (let col in activeFilters[tableId]) {
+                            let filterVal = activeFilters[tableId][col];
+                            if(filterVal && filterVal !== "전체") {
+                                const td = row.querySelectorAll("td")[col];
+                                if(td && td.innerText.trim() !== filterVal) { show = false; }
+                            }
+                            const th = table.querySelectorAll("thead th")[col];
+                            if(th) {
+                                const icon = th.querySelector('.filter-icon');
+                                if(icon && filterVal && filterVal !== "전체") icon.style.display = 'inline';
+                            }
+                        }
+                        row.style.display = show ? "" : "none";
+                    });
+                }
+            });
+        }
+
+        // === [업무 등록 로직] ===
+        document.getElementById('taskForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const imp = document.getElementById('importance').value;
+            const urg = document.getElementById('urgency').value;
+
+            const newTask = {
+                id: Date.now(),
+                regDate: getTodayString(),
+                dueDate: document.getElementById('dueDate').value,
+                content: document.getElementById('content').value,
+                category: document.getElementById('category').value,
+                firstAction: document.getElementById('firstAction').value,
+                importance: imp,
+                urgency: urg,
+                priority: getPriority(imp, urg),
+                timeReq: document.getElementById('timeReq').value,
+                status: '대기중', 
+                remarks: document.getElementById('remarks').value,
+                isTodayTask: false 
+            };
+
+            tasks.push(newTask);
+            updateAndSave();
+            
+            document.getElementById('content').value = "";
+            document.getElementById('firstAction').value = "";
+            document.getElementById('timeReq').value = "";
+            document.getElementById('remarks').value = "";
+            document.getElementById('importance').value = "높음";
+            document.getElementById('urgency').value = "높음";
+            
+            alert("업무가 등록되었습니다.");
+            
+            toggleTaskForm();
+        });
+
+        function toggleTodayTask(id, checkboxEl) {
+            const task = tasks.find(t => t.id === id);
+            if(task) {
+                task.isTodayTask = checkboxEl.checked;
+                updateAndSave(); 
+            }
+        }
+
+        function switchTab(evt, tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if(evt) evt.currentTarget.classList.add('active');
+        }
+
+        // === [분류 및 백업 설정 기능] ===
+        document.getElementById('memoPad').addEventListener('input', function() {
+            updateAndSave(); // 메모장도 입력 즉시 자동 저장
+        });
+
+        function renderCategories() {
+            const selectEl = document.getElementById('category');
+            selectEl.innerHTML = '';
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                selectEl.appendChild(opt);
+            });
+
+            const listContainer = document.getElementById('categoryListContainer');
+            listContainer.innerHTML = '';
+            categories.forEach((cat, index) => {
+                listContainer.innerHTML += `
+                    <li class="setting-item">
+                        <span><b>${cat}</b></span>
+                        <button type="button" onclick="deleteCategory(${index})">삭제</button>
+                    </li>
+                `;
+            });
+        }
+
+        function addCategory() {
+            const inputEl = document.getElementById('newCategoryInput');
+            const newCat = inputEl.value.trim();
+            if (!newCat) { alert("분류명을 입력해 주세요."); return; }
+            if (categories.includes(newCat)) { alert("이미 존재하는 분류입니다."); return; }
+            categories.push(newCat);
+            updateAndSave();
+            inputEl.value = ''; 
+            alert("새로운 분류가 추가되었습니다.");
+        }
+
+        function deleteCategory(index) {
+            if (categories.length <= 1) { alert("최소 1개의 분류는 남아있어야 합니다."); return; }
+            if (confirm(`'${categories[index]}' 분류를 삭제하시겠습니까?`)) {
+                categories.splice(index, 1);
+                updateAndSave();
+            }
+        }
+
+        // 수동 백업 내보내기 (기존 기능 유지)
+        function exportData() {
+            if(tasks.length === 0 && document.getElementById('memoPad').value.trim() === '') {
+                if(!confirm("데이터가 없습니다. 그래도 빈 데이터를 내보내시겠습니까?")) return;
+            }
+            const backupData = {
+                tasks: tasks,
+                categories: categories,
+                memoPadData: document.getElementById('memoPad').value,
+                exportDate: getTodayString()
+            };
+            const dataStr = JSON.stringify(backupData, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `업무데이터_수동백업_${getTodayString()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 수동 백업 불러오기 (기존 기능 유지)
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if(!confirm("기존 데이터가 모두 덮어씌워집니다. 계속하시겠습니까?")) {
+                        event.target.value = ''; return; 
+                    }
+                    if (Array.isArray(importedData.tasks)) tasks = importedData.tasks;
+                    if (Array.isArray(importedData.categories)) categories = importedData.categories;
+                    if (importedData.memoPadData !== undefined) {
+                        document.getElementById('memoPad').value = importedData.memoPadData;
+                    }
+                    updateAndSave();
+                    alert("데이터를 성공적으로 불러왔습니다!");
+                } catch (error) {
+                    alert("데이터를 불러오는 중 오류가 발생했습니다.");
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // === [캘린더 렌더링] ===
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('calMonthText').innerText = `${year}년 ${month + 1}월`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDate = new Date(year, month + 1, 0).getDate();
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            days.forEach(d => {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day-header';
+                dayDiv.innerText = d;
+                if(d === '일') dayDiv.style.color = 'red';
+                if(d === '토') dayDiv.style.color = 'blue';
+                grid.appendChild(dayDiv);
+            });
+            
+            for(let i=0; i<firstDay; i++) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'calendar-day';
+                emptyDiv.style.background = '#f9f9f9';
+                grid.appendChild(emptyDiv);
+            }
+            
+            const realToday = new Date();
+
+            for(let date=1; date<=lastDate; date++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day';
+                
+                if(year === realToday.getFullYear() && month === realToday.getMonth() && date === realToday.getDate()) {
+                    dayDiv.classList.add('today-highlight');
+                }
+
+                const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+                let dateHtml = `<span class="calendar-date">${date}</span>`;
+                
+                const dayTasks = tasks.filter(t => t.dueDate === dateStr);
+                dayTasks.forEach(t => {
+                    const isDone = t.status === '완료됨' ? 'done' : '';
+                    dateHtml += `<div class="cal-task ${isDone}">[${t.priority}순위] ${t.content}</div>`;
+                });
+                
+                dayDiv.innerHTML = dateHtml;
+                grid.appendChild(dayDiv);
+            }
+        }
+
+        // 앱 실행(초기화)
+        initApp();
+    </script>
+</body>
+</html>
