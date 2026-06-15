@@ -28,7 +28,7 @@ ipcMain.on('open-widget', () => {
     }
     widgetWindow = new BrowserWindow({
         width: 300,
-        height: 600,
+        height: 480,
         frame: false,        
         transparent: true,   
         alwaysOnTop: true,   
@@ -52,18 +52,22 @@ ipcMain.handle('load-data', () => {
 });
 
 ipcMain.on('save-data', (event, data) => {
+    // 1. 파일에 즉시 덮어쓰기
     fs.writeFileSync(dataFilePath, data);
+    
+    // 2. 📌 열려있는 모든 창(메인화면, 위젯)에 데이터가 변경되었다고 실시간 알림!
+    BrowserWindow.getAllWindows().forEach(win => {
+        win.webContents.send('sync-data', data);
+    });
 });
 
-// 📌 [신규 추가] 부팅 시 자동 실행 상태 확인하기
 ipcMain.handle('get-autostart', () => {
     return app.getLoginItemSettings().openAtLogin;
 });
 
-// 📌 [신규 추가] 부팅 시 자동 실행 켜기/끄기 설정
 ipcMain.on('set-autostart', (event, enable) => {
     app.setLoginItemSettings({
         openAtLogin: enable,
-        path: app.getPath('exe') // 사내 PC에 설치된 이 프로그램의 경로를 자동으로 등록
+        path: app.getPath('exe') 
     });
 });
