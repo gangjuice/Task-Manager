@@ -28,7 +28,7 @@ ipcMain.on('open-widget', () => {
     }
     widgetWindow = new BrowserWindow({
         width: 300,
-        height: 380,
+        height: 600,
         frame: false,        
         transparent: true,   
         alwaysOnTop: true,   
