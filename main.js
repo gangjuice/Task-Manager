@@ -1,37 +1,37 @@
+});
 const { app, BrowserWindow, ipcMain } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-// PC의 '내 문서' 폴더에 task_data.json 이라는 이름으로 데이터를 저장합니다.
-const dataFilePath = path.join(app.getPath('documents'), 'task_data.json');
-
-let mainWindow;
+// 📌 사내 PC의 '내 문서' 폴더 안에 '업무관리_데이터.json' 이라는 이름으로 영구 저장됩니다.
+const dataFilePath = path.join(app.getPath('documents'), '업무관리_데이터.json');
 
 function createWindow() {
-    mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
+    const mainWindow = new BrowserWindow({
+        width: 1300,
+        height: 900,
         webPreferences: {
-            nodeIntegration: true,    // HTML에서 PC 파일 시스템에 접근할 수 있게 허용
+            nodeIntegration: true,     // HTML에서 PC 폴더 접근 권한 부여
             contextIsolation: false
         }
     });
-    // 메뉴바 숨기기 (더 깔끔한 프로그램처럼 보이게)
+    
+    // 상단 기본 메뉴바 숨기기 (더 깔끔한 프로그램 UI)
     mainWindow.setMenuBarVisibility(false);
     mainWindow.loadFile('index.html');
 }
 
 app.whenReady().then(createWindow);
 
-// 📌 HTML에서 '저장해!' 라고 신호를 보내면 파일에 덮어씁니다 (경고창 없음!)
-ipcMain.on('save-data', (event, data) => {
-    fs.writeFileSync(dataFilePath, data);
-});
-
-// 📌 HTML에서 '데이터 줘!' 라고 신호를 보내면 파일을 읽어서 보내줍니다.
+// 📌 HTML에서 'load-data'를 요청하면 파일에서 데이터를 읽어옵니다.
 ipcMain.handle('load-data', () => {
     if (fs.existsSync(dataFilePath)) {
         return fs.readFileSync(dataFilePath, 'utf8');
     }
-    return null; // 처음 실행해서 파일이 없으면 빈 값 반환
+    return null; 
+});
+
+// 📌 HTML에서 'save-data'를 요청하면 파일에 즉시 덮어씁니다. (알림창 없음)
+ipcMain.on('save-data', (event, data) => {
+    fs.writeFileSync(dataFilePath, data);
 });
