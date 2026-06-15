@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>사내 업무 관리 프로그램</title>
+    <title>Task Manager</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     
     <style>
@@ -147,7 +147,7 @@
     </div>
 
     <div class="header-container">
-        <h1 style="margin: 0;">🚀 업무 관리 대시보드</h1>
+        <h1 style="margin: 0;">🚀 Task Manager</h1>
         <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
     </div>
 
@@ -858,6 +858,12 @@
 
         // 앱 실행(초기화)
         initApp();
+
+             // 📌 바탕화면 위젯 실행 명령
+        function openWidget() {
+            ipcRenderer.send('open-widget');
+        }
+   
     </script>
 </body>
 </html>
