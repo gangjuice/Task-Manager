@@ -4,17 +4,15 @@
     <meta charset="UTF-8">
     <title>Calendar Widget</title>
     <style>
-        /* 위젯 전용 디자인 */
         body { 
             margin: 0; padding: 15px; font-family: 'Malgun Gothic', sans-serif; 
             background-color: rgba(255, 255, 255, 0.95); 
             border-radius: 12px; border: 1px solid #ddd; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
             overflow: hidden; user-select: none;
-            -webkit-app-region: drag; 
-            position: relative; 
+            -webkit-app-region: drag; position: relative; 
             height: 100vh; box-sizing: border-box;
-            display: flex; flex-direction: column; /* 📌 위아래 정렬을 위한 Flex 설정 */
+            display: flex; flex-direction: column; 
         }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         h3 { margin: 0; color: #2c3e50; font-size: 16px; }
@@ -34,10 +32,8 @@
         .day.today { border: 2px solid #3498db; background: #fffff0; }
         .date-num { font-weight: bold; margin-bottom: 2px; color: #333;}
         .dot-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; width: 100%; pointer-events: none;}
-        .dot { width: 6px; height: 6px; background: #e74c3c; border-radius: 50%; display: inline-block; }
-        .dot.done { background: #2ecc71; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; } /* 색상은 JS에서 인라인으로 넣습니다 */
         
-        /* 📌 신규 추가: 하단 메모장 영역 디자인 */
         .memo-container { display: flex; flex-direction: column; flex: 1; -webkit-app-region: no-drag; }
         .memo-header { font-size: 13px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
         #widgetMemo { 
@@ -47,7 +43,6 @@
         }
         #widgetMemo:focus { outline: none; border-color: #3498db; background-color: #fff; }
 
-        /* 업무 상세 팝업창 (오버레이) */
         .task-overlay {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255,255,255,0.98); z-index: 10; padding: 15px; box-sizing: border-box;
@@ -57,7 +52,6 @@
         .task-overlay-header h4 { margin: 0; font-size: 14px; color: #2c3e50; }
         .task-list { overflow-y: auto; flex: 1; font-size: 12px; margin: 0; padding: 0; list-style: none; }
         .task-list li { background: #f8f9fa; padding: 8px; margin-bottom: 5px; border-radius: 4px; border-left: 3px solid #e74c3c; line-height: 1.4; }
-        .task-list li.done { border-left-color: #2ecc71; text-decoration: line-through; opacity: 0.7; }
         .back-btn { background: #7f8c8d; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; font-weight: bold;}
         .back-btn:hover { background: #95a5a6; }
     </style>
@@ -73,13 +67,11 @@
     
     <div class="calendar-grid" id="grid"></div>
 
-    <!-- 📌 신규 추가: 생각나는대로 적기 (메모장) -->
     <div class="memo-container">
         <div class="memo-header">💡 생각나는대로 적기</div>
         <textarea id="widgetMemo" placeholder="간단한 메모나 아이디어를 적어보세요..."></textarea>
     </div>
 
-    <!-- 업무 상세 화면 (기본적으로 숨김) -->
     <div class="task-overlay" id="taskOverlay">
         <div class="task-overlay-header">
             <h4 id="overlayDateTitle"></h4>
@@ -91,16 +83,23 @@
     <script>
         const { ipcRenderer } = require('electron');
         let tasks = [];
-        let categories = ["단가공사", "총가공사", "자료/공문 제출", "민원대응/단순연락", "기타"]; // 기본값
+        let categories = ["단가공사", "총가공사", "자료/공문 제출", "민원대응/단순연락", "기타"]; 
         let memoPadData = "";
         let currentDate = new Date();
 
-        // 투명도 슬라이더 로직
+        // 📌 순위별 색상 지정 함수
+        function getPriorityColor(priority) {
+            if (priority === 1) return '#e74c3c'; // 빨강
+            if (priority === 2) return '#f39c12'; // 주황
+            if (priority === 3) return '#2ecc71'; // 초록
+            if (priority === 4) return '#95a5a6'; // 회색
+            return '#e74c3c';
+        }
+
         document.getElementById('opacitySlider').addEventListener('input', function() {
             document.body.style.backgroundColor = `rgba(255, 255, 255, ${this.value})`;
         });
 
-        // 📌 위젯 메모장에서 글씨를 입력할 때마다 메인 파일에 즉시 덮어쓰기
         document.getElementById('widgetMemo').addEventListener('input', function() {
             memoPadData = this.value;
             const backupData = {
@@ -111,7 +110,22 @@
             ipcRenderer.send('save-data', JSON.stringify(backupData));
         });
 
-        // 메인 데이터 파일에서 읽어오기
+        ipcRenderer.on('sync-data', (event, data) => {
+            try {
+                const parsed = JSON.parse(data);
+                if (parsed.tasks) tasks = parsed.tasks;
+                if (parsed.categories) categories = parsed.categories;
+                if (parsed.memoPadData !== undefined) {
+                    memoPadData = parsed.memoPadData;
+                    const memoEl = document.getElementById('widgetMemo');
+                    if (document.activeElement !== memoEl) {
+                        memoEl.value = memoPadData;
+                    }
+                }
+                render();
+            } catch(e) {}
+        });
+
         async function init() {
             const data = await ipcRenderer.invoke('load-data');
             if (data) {
@@ -121,12 +135,7 @@
                     if (parsed.categories) categories = parsed.categories;
                     if (parsed.memoPadData !== undefined) {
                         memoPadData = parsed.memoPadData;
-                        
-                        // 📌 사용자가 위젯 메모장에 타이핑 중일 때는 커서가 튀지 않도록 업데이트를 건너뜀
-                        const memoEl = document.getElementById('widgetMemo');
-                        if (document.activeElement !== memoEl) {
-                            memoEl.value = memoPadData;
-                        }
+                        document.getElementById('widgetMemo').value = memoPadData;
                     }
                 } catch(e) {}
             }
@@ -173,8 +182,11 @@
 
                 const dayTasks = tasks.filter(t => t.dueDate === dateStr);
                 dayTasks.forEach(t => {
-                    const dotClass = t.status === '완료됨' ? 'dot done' : 'dot';
-                    html += `<span class="${dotClass}"></span>`;
+                    // 📌 점(Dot) 색상도 순위별로 다르게 적용
+                    const bgColor = getPriorityColor(t.priority);
+                    const doneOpacity = t.status === '완료됨' ? 'opacity: 0.4;' : '';
+                    
+                    html += `<span class="dot" style="background-color: ${bgColor}; ${doneOpacity}"></span>`;
                 });
                 html += `</div>`;
                 div.innerHTML = html;
@@ -194,7 +206,16 @@
             
             dayTasks.sort((a, b) => a.priority - b.priority).forEach(t => {
                 const li = document.createElement('li');
-                if(t.status === '완료됨') li.className = 'done';
+                const priorityColor = getPriorityColor(t.priority);
+                
+                // 📌 팝업창 리스트의 좌측 테두리 색상도 순위별로 맞춤
+                li.style.borderLeftColor = priorityColor;
+                
+                if(t.status === '완료됨') {
+                    li.style.textDecoration = 'line-through';
+                    li.style.opacity = '0.6';
+                }
+                
                 li.innerHTML = `<b>[${t.priority}순위]</b> ${t.content}`;
                 listEl.appendChild(li);
             });
@@ -206,9 +227,7 @@
             document.getElementById('taskOverlay').style.display = 'none';
         }
 
-        // 최초 실행 및 5초마다 자동 갱신
         init();
-        setInterval(init, 5000); 
     </script>
 </body>
 </html>
