@@ -1,5 +1,6 @@
 {
-  "name": "task-manager-pro",
+  "name": "task-manager",
+  "productName": "Task Manager",
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
