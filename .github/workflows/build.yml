@@ -1,4 +1,4 @@
-name: Build EXE
+name: Build Windows EXE
 
 on:
   push:
@@ -16,5 +16,5 @@ jobs:
       - run: npm run build
       - uses: actions/upload-artifact@v3
         with:
-          name: Windows-EXE
+          name: 업무관리_프로그램_설치파일
           path: dist/*.exe
