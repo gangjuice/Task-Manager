@@ -3,20 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Manager</title>
+    <title>사내 업무 관리 프로그램</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     
     <style>
-        /* 기본 스타일 및 리셋 */
         body { font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
         h1, h2 { color: #2c3e50; }
-        
-        /* 헤더 영역 */
         .header-container { display: flex; justify-content: flex-start; align-items: center; gap: 15px; margin-bottom: 20px; }
         .btn-new-task { background-color: #2ecc71; padding: 10px 18px; font-size: 14px; font-weight: bold; color: #fff; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: background-color 0.2s; }
         .btn-new-task:hover { background-color: #27ae60; }
-
-        /* 입력 폼 영역 */
         .form-container { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; border-top: 4px solid #2ecc71; position: relative; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
         .form-group { display: flex; flex-direction: column; }
@@ -25,28 +20,18 @@
         input[type="text"], input[type="date"], select, textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit; }
         button { padding: 10px 15px; background-color: #3498db; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: background-color 0.2s; }
         button:hover { background-color: #2980b9; }
-
-        /* 탭 영역 */
         .tabs { display: flex; border-bottom: 2px solid #3498db; margin-bottom: 20px; flex-wrap: wrap; }
         .tab-btn { padding: 10px 20px; background: #ecf0f1; border: none; border-top-left-radius: 5px; border-top-right-radius: 5px; margin-right: 5px; cursor: pointer; font-size: 15px; font-weight: bold; color: #7f8c8d; }
         .tab-btn.active { background: #3498db; color: #fff; }
-
-        /* 콘텐츠 영역 */
         .tab-content { display: none; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .tab-content.active { display: block; }
-
-        /* 위젯 모드용 가로 스크롤 컨테이너 */
         .table-responsive { overflow-x: auto; width: 100%; border-radius: 4px; border: 1px solid #ddd; }
-
-        /* 테이블 영역 */
         table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; min-width: 1000px; }
         th, td { border: 1px solid #ddd; padding: 10px; }
         th { background-color: #f8f9fa; color: #333; position: relative; }
         tr:hover { background-color: #f1f1f1; }
         th.sortable:hover { background-color: #e2e6ea; }
         .filter-icon { font-size: 10px; color: #3498db; margin-left: 5px; display: none; }
-
-        /* 우클릭 팝업 (컨텍스트 메뉴) 스타일 */
         .context-menu { display: none; position: absolute; z-index: 1000; background-color: #fff; border: 1px solid #ccc; border-radius: 5px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); min-width: 130px; overflow: hidden; }
         .context-menu ul { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
         .context-menu li { padding: 10px 15px; cursor: pointer; font-size: 13px; font-weight: bold; font-family: 'Malgun Gothic', sans-serif; color: #333; border-bottom: 1px solid #eee; }
@@ -56,16 +41,12 @@
         .context-menu li.delete-btn:hover { background-color: #fceceb; }
         .context-menu li.edit-btn { color: #3498db; }
         .context-menu li.edit-btn:hover { background-color: #ebf5fb; }
-
-        /* 팝업 편집창 (모달) 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; }
         .modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
         .modal-header h2 { margin: 0; font-size: 18px; }
         .btn-close { background: transparent; color: #7f8c8d; font-size: 20px; padding: 0; margin: 0; border: none; cursor: pointer; }
         .btn-close:hover { color: #e74c3c; background: transparent; }
-
-        /* 캘린더 영역 */
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
         .calendar-day-header { background: #eef2f5; font-weight: bold; text-align: center; padding: 10px 0; }
@@ -74,16 +55,16 @@
         .calendar-date { font-weight: bold; font-size: 14px; color: #555; display: block; margin-bottom: 5px; }
         .cal-task { background: #e74c3c; color: #fff; font-size: 11px; padding: 2px 5px; border-radius: 3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cal-task.done { background: #2ecc71; text-decoration: line-through; opacity: 0.7; }
-
-        /* 메모장 영역 */
         #memoPad { width: 100%; height: 400px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: 'Malgun Gothic', sans-serif; resize: vertical; box-sizing: border-box; line-height: 1.6; }
-
-        /* 설정 탭 전용 스타일 */
         .setting-section { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
         .setting-section h3 { margin-top: 0; color: #2c3e50; font-size: 16px; margin-bottom: 15px; }
         .setting-list { list-style: none; padding: 0; margin: 0; max-width: 400px; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
         .setting-item button { padding: 4px 8px; font-size: 12px; background: #e74c3c; }
+        
+        /* 토글 스위치용 디자인 */
+        .toggle-switch { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .toggle-switch input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -146,13 +127,11 @@
         </div>
     </div>
 
-        <!-- 헤더 영역 -->
     <div class="header-container">
         <h1 style="margin: 0;">🚀 Task Manager</h1>
         <button type="button" class="btn-new-task" style="background-color: #9b59b6;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
         <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
     </div>
-
 
     <div class="form-container" id="taskFormContainer" style="display: none;">
         <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
@@ -210,7 +189,7 @@
         <button type="button" class="tab-btn" onclick="switchTab(event, 'completed')">✅ 완료</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
     </div>
-
+    
     <div id="dashboard" class="tab-content active">
         <div class="calendar-header">
             <h2 id="calMonthText"></h2>
@@ -244,6 +223,17 @@
 
     <div id="settings" class="tab-content">
         <h2>⚙️ 설정 및 데이터 관리</h2>
+        
+        <div class="setting-section">
+            <h3>🚀 컴퓨터 시작 시 자동 실행</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 10px;">
+                컴퓨터를 켤 때 업무 프로그램(Task Manager)이 자동으로 실행되도록 설정합니다.
+            </p>
+            <label class="toggle-switch">
+                <input type="checkbox" id="autoStartCheckbox" onchange="toggleAutoStart()"> 부팅 시 자동 실행 켜기
+            </label>
+        </div>
+
         <div class="setting-section">
             <h3>🏷️ 분류(Category) 관리</h3>
             <div style="margin-bottom: 15px; display: flex; gap: 10px;">
@@ -253,6 +243,7 @@
             <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
             <ul class="setting-list" id="categoryListContainer"></ul>
         </div>
+        
         <div class="setting-section">
             <h3>💾 수동 백업 및 복구 (타 PC 이동용)</h3>
             <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
@@ -268,10 +259,8 @@
     </div>
 
     <script>
-        // 📌 Electron 백엔드와 통신하기 위한 도구 불러오기
         const { ipcRenderer } = require('electron');
 
-        // === [상태 및 변수 관리] ===
         let tasks = [];
         let categories = ["단가공사", "총가공사", "자료/공문 제출", "민원대응/단순연락", "기타"];
         let savedMemo = "";
@@ -279,8 +268,18 @@
         let currentDate = new Date(); 
         let activeFilters = { masterTable: {}, todayTable: {}, completedTable: {} };
 
-        // === [초기화: PC 폴더에서 데이터 불러오기] ===
+        function openWidget() {
+            ipcRenderer.send('open-widget');
+        }
+
+        // 📌 자동 실행 설정 켜기/끄기
+        function toggleAutoStart() {
+            const isChecked = document.getElementById('autoStartCheckbox').checked;
+            ipcRenderer.send('set-autostart', isChecked);
+        }
+
         async function initApp() {
+            // 기존 데이터 불러오기
             const rawData = await ipcRenderer.invoke('load-data');
             if (rawData) {
                 try {
@@ -293,15 +292,17 @@
                 }
             }
             
+            // 📌 시작할 때 기존에 자동 실행이 설정되어 있었는지 확인하고 체크박스 세팅
+            const isAutoStart = await ipcRenderer.invoke('get-autostart');
+            document.getElementById('autoStartCheckbox').checked = isAutoStart;
+            
             document.getElementById('memoPad').value = savedMemo;
             renderCategories();
             renderAllTables();
             renderCalendar();
         }
 
-        // === [핵심: 자동 저장 엔진] ===
         function updateAndSave() {
-            // 변경된 데이터를 묶어서 main.js로 보냄 -> 알림창 없이 PC에 즉시 덮어쓰기 완료!
             const backupData = {
                 tasks: tasks,
                 categories: categories,
@@ -313,7 +314,6 @@
             renderCalendar();
         }
 
-        // === [공통 유틸 함수] ===
         function getTodayString() {
             const tzoffset = (new Date()).getTimezoneOffset() * 60000; 
             return (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
@@ -347,7 +347,6 @@
             return { text, color };
         }
 
-        // === [입력창 토글 기능] ===
         function toggleTaskForm() {
             const formContainer = document.getElementById('taskFormContainer');
             if (formContainer.style.display === 'none' || formContainer.style.display === '') {
@@ -358,7 +357,6 @@
             }
         }
 
-        // === [컨텍스트 메뉴 (우클릭 팝업) 처리] ===
         let contextTargetId = null; 
         let contextTargetTable = null;
         let contextTargetCol = null;
@@ -447,7 +445,6 @@
             });
         }
 
-        // === [팝업 수정창 (모달) 로직] ===
         const editModal = document.getElementById('editModal');
         
         function openEditModal() {
@@ -504,7 +501,6 @@
             }
         }
 
-        // === [테이블 렌더링 및 기능] ===
         function completeTask(id) {
             const task = tasks.find(t => t.id === id);
             if(task) {
@@ -655,7 +651,6 @@
             });
         }
 
-        // === [업무 등록 로직] ===
         document.getElementById('taskForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const imp = document.getElementById('importance').value;
@@ -707,9 +702,8 @@
             if(evt) evt.currentTarget.classList.add('active');
         }
 
-        // === [분류 및 백업 설정 기능] ===
         document.getElementById('memoPad').addEventListener('input', function() {
-            updateAndSave(); // 메모장도 입력 즉시 자동 저장
+            updateAndSave();
         });
 
         function renderCategories() {
@@ -753,7 +747,6 @@
             }
         }
 
-        // 수동 백업 내보내기 (기존 기능 유지)
         function exportData() {
             if(tasks.length === 0 && document.getElementById('memoPad').value.trim() === '') {
                 if(!confirm("데이터가 없습니다. 그래도 빈 데이터를 내보내시겠습니까?")) return;
@@ -776,7 +769,6 @@
             URL.revokeObjectURL(url);
         }
 
-        // 수동 백업 불러오기 (기존 기능 유지)
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -802,7 +794,6 @@
             reader.readAsText(file);
         }
 
-        // === [캘린더 렌더링] ===
         function changeMonth(delta) {
             currentDate.setMonth(currentDate.getMonth() + delta);
             renderCalendar();
@@ -859,14 +850,7 @@
             }
         }
 
-        // 앱 실행(초기화)
         initApp();
-
-             // 📌 바탕화면 위젯 실행 명령
-        function openWidget() {
-            ipcRenderer.send('open-widget');
-        }
-   
     </script>
 </body>
 </html>
