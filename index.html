@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Manager v1.0</title>
+    <title>사내 업무 관리 프로그램</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     
     <style>
@@ -53,16 +53,13 @@
         .calendar-day { background: #fff; border: 1px solid #ddd; min-height: 100px; padding: 5px; border-radius: 4px; position: relative; }
         .calendar-day.today-highlight { background-color: #fffff0; border: 2px solid #3498db; }
         .calendar-date { font-weight: bold; font-size: 14px; color: #555; display: block; margin-bottom: 5px; }
-        .cal-task { background: #e74c3c; color: #fff; font-size: 11px; padding: 2px 5px; border-radius: 3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cal-task.done { background: #2ecc71; text-decoration: line-through; opacity: 0.7; }
+        .cal-task { color: #fff; font-size: 11px; padding: 2px 5px; border-radius: 3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #memoPad { width: 100%; height: 400px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: 'Malgun Gothic', sans-serif; resize: vertical; box-sizing: border-box; line-height: 1.6; }
         .setting-section { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
         .setting-section h3 { margin-top: 0; color: #2c3e50; font-size: 16px; margin-bottom: 15px; }
         .setting-list { list-style: none; padding: 0; margin: 0; max-width: 400px; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
         .setting-item button { padding: 4px 8px; font-size: 12px; background: #e74c3c; }
-        
-        /* 토글 스위치용 디자인 */
         .toggle-switch { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 14px; cursor: pointer; }
         .toggle-switch input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
     </style>
@@ -127,10 +124,11 @@
         </div>
     </div>
 
+    <!-- 📌 요청하신 상단 버튼 순서 변경 -->
     <div class="header-container">
         <h1 style="margin: 0;">🚀 Task Manager</h1>
-        <button type="button" class="btn-new-task" style="background-color: #9b59b6;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
         <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
+        <button type="button" class="btn-new-task" style="background-color: #9b59b6;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
     </div>
 
     <div class="form-container" id="taskFormContainer" style="display: none;">
@@ -268,18 +266,34 @@
         let currentDate = new Date(); 
         let activeFilters = { masterTable: {}, todayTable: {}, completedTable: {} };
 
+        ipcRenderer.on('sync-data', (event, data) => {
+            try {
+                const parsed = JSON.parse(data);
+                if (parsed.tasks) tasks = parsed.tasks;
+                if (parsed.categories) categories = parsed.categories;
+                if (parsed.memoPadData !== undefined) {
+                    savedMemo = parsed.memoPadData;
+                    const memoEl = document.getElementById('memoPad');
+                    if (document.activeElement !== memoEl) {
+                        memoEl.value = savedMemo;
+                    }
+                }
+                renderCategories();
+                renderAllTables();
+                renderCalendar();
+            } catch(e) {}
+        });
+
         function openWidget() {
             ipcRenderer.send('open-widget');
         }
 
-        // 📌 자동 실행 설정 켜기/끄기
         function toggleAutoStart() {
             const isChecked = document.getElementById('autoStartCheckbox').checked;
             ipcRenderer.send('set-autostart', isChecked);
         }
 
         async function initApp() {
-            // 기존 데이터 불러오기
             const rawData = await ipcRenderer.invoke('load-data');
             if (rawData) {
                 try {
@@ -287,12 +301,9 @@
                     if (parsed.tasks) tasks = parsed.tasks;
                     if (parsed.categories) categories = parsed.categories;
                     if (parsed.memoPadData !== undefined) savedMemo = parsed.memoPadData;
-                } catch(e) {
-                    console.error("데이터 파싱 중 오류 발생:", e);
-                }
+                } catch(e) {}
             }
             
-            // 📌 시작할 때 기존에 자동 실행이 설정되어 있었는지 확인하고 체크박스 세팅
             const isAutoStart = await ipcRenderer.invoke('get-autostart');
             document.getElementById('autoStartCheckbox').checked = isAutoStart;
             
@@ -310,6 +321,8 @@
             };
             ipcRenderer.send('save-data', JSON.stringify(backupData));
             
+            // 📌 이제 화면(UI)도 즉시 다시 그리도록 지시합니다.
+            renderCategories(); 
             renderAllTables();
             renderCalendar();
         }
@@ -324,6 +337,14 @@
             if(importance === '낮음' && urgency === '높음') return 2;
             if(importance === '높음' && urgency === '낮음') return 3;
             return 4;
+        }
+
+        function getPriorityColor(priority) {
+            if (priority === 1) return '#e74c3c'; 
+            if (priority === 2) return '#f39c12'; 
+            if (priority === 3) return '#2ecc71'; 
+            if (priority === 4) return '#95a5a6'; 
+            return '#e74c3c';
         }
 
         function getDdayInfo(dueDate) {
@@ -590,7 +611,7 @@
                         <td>${t.firstAction || '-'}</td>
                         <td>${t.importance}</td>
                         <td>${t.urgency}</td>
-                        <td><b>${t.priority}순위</b></td>
+                        <td><b style="color: ${getPriorityColor(t.priority)}">${t.priority}순위</b></td>
                         <td>${t.timeReq || '-'}</td>
                         <td style="text-align: left;">${t.remarks || '-'}</td>
                         <td>
@@ -841,8 +862,10 @@
                 
                 const dayTasks = tasks.filter(t => t.dueDate === dateStr);
                 dayTasks.forEach(t => {
-                    const isDone = t.status === '완료됨' ? 'done' : '';
-                    dateHtml += `<div class="cal-task ${isDone}">[${t.priority}순위] ${t.content}</div>`;
+                    const bgColor = getPriorityColor(t.priority);
+                    const doneStyle = t.status === '완료됨' ? 'text-decoration: line-through; opacity: 0.5;' : '';
+                    
+                    dateHtml += `<div class="cal-task" style="background-color: ${bgColor}; ${doneStyle}">[${t.priority}순위] ${t.content}</div>`;
                 });
                 
                 dayDiv.innerHTML = dateHtml;
