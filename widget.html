@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Calendar Widget</title>
+    <style>
+        /* 위젯 전용 디자인 (마우스로 잡고 이동 가능) */
+        body { 
+            margin: 0; padding: 15px; font-family: 'Malgun Gothic', sans-serif; 
+            background-color: rgba(255, 255, 255, 0.95); /* 기본 반투명 배경 */
+            border-radius: 12px; border: 1px solid #ddd; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            overflow: hidden; user-select: none;
+            -webkit-app-region: drag; /* 마우스 드래그 허용 영역 */
+            position: relative; /* 팝업 오버레이 띄우기용 */
+            height: 100vh; box-sizing: border-box;
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        h3 { margin: 0; color: #2c3e50; font-size: 16px; }
+        .controls { display: flex; gap: 8px; align-items: center; -webkit-app-region: no-drag; }
+        
+        /* 투명도 조절 슬라이더 */
+        .opacity-slider { width: 60px; cursor: pointer; }
+        
+        .close-btn { 
+            background: #e74c3c; color: white; border: none; border-radius: 50%; 
+            width: 22px; height: 22px; font-size: 11px; font-weight: bold; cursor: pointer; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+        .close-btn:hover { background: #c0392b; }
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; font-size: 12px; }
+        .day-header { font-weight: bold; background: #eef2f5; padding: 5px 0; border-radius: 3px; }
+        .day { background: white; border: 1px solid #eee; min-height: 40px; border-radius: 3px; padding: 2px; display: flex; flex-direction: column; align-items: center; cursor: pointer; -webkit-app-region: no-drag;}
+        .day:hover { background: #f1f8ff; border-color: #3498db; }
+        .day.today { border: 2px solid #3498db; background: #fffff0; }
+        .date-num { font-weight: bold; margin-bottom: 2px; color: #333;}
+        .dot-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; width: 100%; pointer-events: none;}
+        .dot { width: 6px; height: 6px; background: #e74c3c; border-radius: 50%; display: inline-block; }
+        .dot.done { background: #2ecc71; }
+        
+        /* 📌 업무 상세 팝업창 (오버레이) */
+        .task-overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.98); z-index: 10; padding: 15px; box-sizing: border-box;
+            flex-direction: column; -webkit-app-region: no-drag;
+        }
+        .task-overlay-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 8px; margin-bottom: 10px; }
+        .task-overlay-header h4 { margin: 0; font-size: 14px; color: #2c3e50; }
+        .task-list { overflow-y: auto; flex: 1; font-size: 12px; margin: 0; padding: 0; list-style: none; }
+        .task-list li { background: #f8f9fa; padding: 8px; margin-bottom: 5px; border-radius: 4px; border-left: 3px solid #e74c3c; line-height: 1.4; }
+        .task-list li.done { border-left-color: #2ecc71; text-decoration: line-through; opacity: 0.7; }
+        .back-btn { background: #7f8c8d; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; font-weight: bold;}
+        .back-btn:hover { background: #95a5a6; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h3 id="monthText"></h3>
+        <div class="controls">
+            <input type="range" min="0.2" max="1" step="0.05" value="0.95" class="opacity-slider" id="opacitySlider" title="배경 투명도 조절">
+            <button class="close-btn" onclick="window.close()" title="위젯 닫기">✖</button>
+        </div>
+    </div>
+    
+    <div class="calendar-grid" id="grid"></div>
+
+    <div class="task-overlay" id="taskOverlay">
+        <div class="task-overlay-header">
+            <h4 id="overlayDateTitle"></h4>
+            <button class="back-btn" onclick="closeTaskOverlay()">◀ 달력으로</button>
+        </div>
+        <ul class="task-list" id="overlayTaskList"></ul>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        let tasks = [];
+        let currentDate = new Date();
+
+        // 📌 투명도 슬라이더 로직
+        document.getElementById('opacitySlider').addEventListener('input', function() {
+            document.body.style.backgroundColor = `rgba(255, 255, 255, ${this.value})`;
+        });
+
+        // 메인 데이터 파일에서 읽어오기
+        async function init() {
+            const data = await ipcRenderer.invoke('load-data');
+            if (data) {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.tasks) tasks = parsed.tasks;
+                } catch(e) {}
+            }
+            render();
+        }
+
+        function render() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('monthText').innerText = `${year}년 ${month + 1}월`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDate = new Date(year, month + 1, 0).getDate();
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            days.forEach(d => {
+                const div = document.createElement('div');
+                div.className = 'day-header';
+                div.innerText = d;
+                if(d === '일') div.style.color = 'red';
+                if(d === '토') div.style.color = 'blue';
+                grid.appendChild(div);
+            });
+
+            for(let i=0; i<firstDay; i++) {
+                const div = document.createElement('div');
+                div.style.background = 'transparent';
+                div.style.border = 'none';
+                grid.appendChild(div);
+            }
+
+            const realToday = new Date();
+            for(let date=1; date<=lastDate; date++) {
+                const div = document.createElement('div');
+                div.className = 'day';
+                if(year === realToday.getFullYear() && month === realToday.getMonth() && date === realToday.getDate()) {
+                    div.classList.add('today');
+                }
+
+                const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+                let html = `<span class="date-num">${date}</span><div class="dot-container">`;
+
+                const dayTasks = tasks.filter(t => t.dueDate === dateStr);
+                dayTasks.forEach(t => {
+                    const dotClass = t.status === '완료됨' ? 'dot done' : 'dot';
+                    html += `<span class="${dotClass}"></span>`;
+                });
+                html += `</div>`;
+                div.innerHTML = html;
+                
+                // 📌 클릭 이벤트: 해당 날짜에 일정이 1개라도 있으면 팝업을 열어줌
+                div.onclick = () => {
+                    if(dayTasks.length > 0) openTaskOverlay(dateStr, dayTasks);
+                };
+
+                grid.appendChild(div);
+            }
+        }
+
+        // 📌 업무 상세 팝업 열기 함수
+        function openTaskOverlay(dateStr, dayTasks) {
+            document.getElementById('overlayDateTitle').innerText = dateStr;
+            const listEl = document.getElementById('overlayTaskList');
+            listEl.innerHTML = '';
+            
+            // 우선순위에 따라 정렬하여 표시
+            dayTasks.sort((a, b) => a.priority - b.priority).forEach(t => {
+                const li = document.createElement('li');
+                if(t.status === '완료됨') li.className = 'done';
+                li.innerHTML = `<b>[${t.priority}순위]</b> ${t.content}`;
+                listEl.appendChild(li);
+            });
+            
+            document.getElementById('taskOverlay').style.display = 'flex';
+        }
+
+        // 📌 업무 상세 팝업 닫기 함수
+        function closeTaskOverlay() {
+            document.getElementById('taskOverlay').style.display = 'none';
+        }
+
+        // 최초 실행 및 5초마다 자동 갱신 (본 프로그램과 동기화)
+        init();
+        setInterval(init, 5000); 
+    </script>
+</body>
+</html>
