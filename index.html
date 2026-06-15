@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Manager v1.1</title>
+    <title>Task Manager</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     
     <style>
@@ -124,7 +124,6 @@
         </div>
     </div>
 
-    <!-- 📌 요청하신 상단 버튼 순서 변경 -->
     <div class="header-container">
         <h1 style="margin: 0;">🚀 Task Manager</h1>
         <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
@@ -321,7 +320,6 @@
             };
             ipcRenderer.send('save-data', JSON.stringify(backupData));
             
-            // 📌 이제 화면(UI)도 즉시 다시 그리도록 지시합니다.
             renderCategories(); 
             renderAllTables();
             renderCalendar();
