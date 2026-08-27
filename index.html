@@ -558,7 +558,7 @@
         <div class="sheet-bar" id="sheetBar"></div>
 
         <div id="sheetBody">
-            <div class="sheet-toolbar">
+            <div class="sheet-toolbar" id="sheetToolbar">
                 <button type="button" class="btn-new-task btn-sm" onclick="addSheetRow()">➕ 행 추가</button>
                 <button type="button" class="btn-new-task btn-sm" style="background-color:#3498db;" onclick="openColumnModal(null)">➕ 열 추가</button>
                 <button type="button" class="btn-sm" style="background-color:#7f8c8d;" onclick="undoSheet()">↩ 되돌리기</button>
@@ -2754,6 +2754,11 @@
             const input = document.querySelector('#gridWrap .cell-input');
             if (!input) { document.getElementById('gridWrap').focus(); return; }
 
+            // 📌 이 입력칸이 어느 시트의 어느 칸 소속인지 붙잡아 둔다.
+            // blur 는 화면을 다시 그린 뒤에 늦게 오기도 하는데, 그때 activeSheetId 가 이미
+            // 다른 시트로 바뀌어 있으면 남의 시트에 값을 써버린다.
+            const owner = { sheetId: activeSheetId, r: sel.r1, c: sel.c1 };
+
             input.focus();
             if (editMode) {
                 const n = input.value.length;
@@ -2776,15 +2781,15 @@
                 if (e.key === 'F2') { e.preventDefault(); editMode = true; renderGrid(); return; }
                 if (e.key === 'Escape') { editMode = false; renderGrid(); return; }
 
-                if (e.key === 'Enter') { e.preventDefault(); commitAnchor(input.value); moveSel('down'); editMode = false; renderGrid(); return; }
-                if (e.key === 'Tab')   { e.preventDefault(); commitAnchor(input.value); moveSel(e.shiftKey ? 'left' : 'right'); editMode = false; renderGrid(); return; }
+                if (e.key === 'Enter') { e.preventDefault(); commitTo(owner, input.value); moveSel('down'); editMode = false; renderGrid(); return; }
+                if (e.key === 'Tab')   { e.preventDefault(); commitTo(owner, input.value); moveSel(e.shiftKey ? 'left' : 'right'); editMode = false; renderGrid(); return; }
 
                 const nav = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.key];
                 if (nav) {
                     // 편집 모드에서는 좌우 방향키가 글자 사이를 움직인다 (엑셀과 동일)
                     if (editMode && (nav === 'left' || nav === 'right')) return;
                     e.preventDefault();
-                    commitAnchor(input.value);
+                    commitTo(owner, input.value);
                     moveSel(nav, e.shiftKey);
                     editMode = false;
                     renderGrid();
@@ -2798,12 +2803,23 @@
                 }
             };
 
-            input.onblur = () => { commitAnchor(input.value); };
+            input.onblur = () => { commitTo(owner, input.value); };
         }
 
-        function commitAnchor(value) {
-            if (!sel) return;
-            setCell(sel.r1, sel.c1, value);
+        // 앵커가 아니라 "이 입력칸이 원래 붙어 있던 칸"에 쓴다.
+        function commitTo(owner, value) {
+            if (!owner) return;
+            const sheet = sheets.find(x => x.id === owner.sheetId);
+            if (!sheet) return;
+            const col = sheet.columns[owner.c];
+            const row = sheet.rows[owner.r];
+            if (!col || !row) return;
+            const before = row.cells[col.id];
+            if (String(before == null ? '' : before) === String(value)) return;
+            pushUndo();
+            row.cells[col.id] = value;
+            sheet.updatedAt = nowStamp();
+            saveSheets();
         }
 
         function selSize() {
@@ -2953,10 +2969,16 @@
             if (!wrap) return;
 
             const s = curSheet();
+            const toolbar = document.getElementById('sheetToolbar');
+
+            // 📌 여기서 sheetBody 를 통째로 덮어쓰면 안 된다. 그 안에 도구줄과 #gridWrap 이 들어 있어서,
+            // 한 번 덮어쓰면 프로젝트를 만들어도 그릴 곳이 사라진다. 빈 안내는 표 자리에만 넣는다.
             if (!s) {
-                body.innerHTML = '<div class="sheet-empty">아직 프로젝트가 없습니다.<br>“➕ 새 프로젝트”로 시작하세요.<br><br>엑셀에 이미 표가 있다면 <b>빈 표로 시작</b> 후 헤더째 붙여넣으면 열까지 한 번에 만들어집니다.</div>';
+                if (toolbar) toolbar.style.display = 'none';
+                wrap.innerHTML = '<div class="sheet-empty">아직 프로젝트가 없습니다.<br>“➕ 새 프로젝트”로 시작하세요.<br><br>엑셀에 이미 표가 있다면 <b>빈 표로 시작</b> 후 헤더째 붙여넣으면 열까지 한 번에 만들어집니다.</div>';
                 return;
             }
+            if (toolbar) toolbar.style.display = 'flex';
 
             document.getElementById('sheetHint').innerText =
                 s.rows.length + '행 · ' + s.columns.length + '열' + (undoStack.length ? '  ·  Ctrl+Z 로 되돌리기' : '');
