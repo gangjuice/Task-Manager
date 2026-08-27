@@ -183,7 +183,7 @@ check('이름 수정은 마지막 기록일을 건드리지 않음',
   c.name === '김철수(수정)' && c.lastNoteAt === mkDate(0), `name=${c.name} lastNoteAt=${c.lastNoteAt}`);
 
 // 설정에서 구분 이름을 바꾸면 쓰던 연락처도 따라간다
-await switchTab(main2, 6);
+await switchTab(main2, 7);   // 설정
 await sleep(300);
 await main2.evaluate(() => startRename('tags', 0));
 await main2.evaluate(() => {

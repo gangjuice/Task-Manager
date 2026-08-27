@@ -136,5 +136,5 @@ export const typeInto = (page, sel, text, delay = 40) => page.evaluate(async ({ 
   return el.value;
 }, { sel, text, delay });
 
-/** 탭 이동: 0=대시보드 1=생각나는대로 적기 2=마스터 3=오늘 할 일 4=연락처 5=완료 6=설정 */
+/** 탭 이동: 0=대시보드 1=생각나는대로 적기 2=마스터 3=오늘 할 일 4=연락처 5=접수 관리 6=완료 7=설정 */
 export const switchTab = (page, i) => page.evaluate(i => document.querySelectorAll('.tab-btn')[i].click(), i);
