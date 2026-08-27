@@ -265,11 +265,10 @@
         let currentDate = new Date(); 
         let activeFilters = { masterTable: {}, todayTable: {}, completedTable: {} };
 
-        ipcRenderer.on('sync-data', (event, data) => {
+        // 다른 창이 바꾼 섹션만 도착한다. 없는 섹션은 건드리지 않는다.
+        ipcRenderer.on('sync-sections', (event, patch) => {
             try {
-                const parsed = JSON.parse(data);
-                if (parsed.tasks) tasks = parsed.tasks;
-                if (parsed.categories) categories = parsed.categories;
+                const parsed = patch || {};
                 if (parsed.memoPadData !== undefined) {
                     const memoEl = document.getElementById('memoPad');
                     // 📌 아직 저장 안 된 내 입력이 있을 때(memoSaveTimer)만 덮어쓰기를 미룬다.
@@ -282,9 +281,14 @@
                         try { memoEl.setSelectionRange(pos, pos); } catch (e) {}
                     }
                 }
-                renderCategories();
-                renderAllTables();
-                renderCalendar();
+                // 메모만 바뀐 경우에는 표와 달력을 다시 그릴 이유가 없다.
+                if (parsed.tasks || parsed.categories) {
+                    if (parsed.tasks) tasks = parsed.tasks;
+                    if (parsed.categories) categories = parsed.categories;
+                    renderCategories();
+                    renderAllTables();
+                    renderCalendar();
+                }
             } catch(e) {}
         });
 
@@ -298,14 +302,11 @@
         }
 
         async function initApp() {
-            const rawData = await ipcRenderer.invoke('load-data');
-            if (rawData) {
-                try {
-                    const parsed = JSON.parse(rawData);
-                    if (parsed.tasks) tasks = parsed.tasks;
-                    if (parsed.categories) categories = parsed.categories;
-                    if (parsed.memoPadData !== undefined) savedMemo = parsed.memoPadData;
-                } catch(e) {}
+            const doc = await ipcRenderer.invoke('load-data');
+            if (doc) {
+                if (Array.isArray(doc.tasks)) tasks = doc.tasks;
+                if (Array.isArray(doc.categories) && doc.categories.length) categories = doc.categories;
+                if (doc.memoPadData !== undefined) savedMemo = doc.memoPadData;
             }
             
             const isAutoStart = await ipcRenderer.invoke('get-autostart');
@@ -317,14 +318,19 @@
             renderCalendar();
         }
 
-        // 파일 저장만 수행 (화면은 그대로 두어야 할 때 사용: 메모 자동 저장 등)
+        // 바뀐 섹션만 저장한다. 내가 안 건드린 섹션은 파일의 값이 그대로 유지된다.
+        function saveSections(patch) {
+            ipcRenderer.send('save-sections', patch);
+        }
+
+        // 업무/분류가 바뀌었을 때
         function persistData() {
-            const backupData = {
-                tasks: tasks,
-                categories: categories,
-                memoPadData: document.getElementById('memoPad').value
-            };
-            ipcRenderer.send('save-data', JSON.stringify(backupData));
+            saveSections({ tasks: tasks, categories: categories });
+        }
+
+        // 메모만 바뀌었을 때 (표와 달력은 그대로 둔다)
+        function persistMemo() {
+            saveSections({ memoPadData: document.getElementById('memoPad').value });
         }
 
         function updateAndSave() {
@@ -743,7 +749,7 @@
             if (memoSaveTimer) {
                 clearTimeout(memoSaveTimer);
                 memoSaveTimer = null;
-                persistData();
+                persistMemo();
             }
         }
 
@@ -752,7 +758,7 @@
             if (memoSaveTimer) clearTimeout(memoSaveTimer);
             memoSaveTimer = setTimeout(() => {
                 memoSaveTimer = null;
-                persistData();
+                persistMemo();
             }, 500);
         });
 
@@ -839,7 +845,15 @@
                     if (importedData.memoPadData !== undefined) {
                         document.getElementById('memoPad').value = importedData.memoPadData;
                     }
-                    updateAndSave();
+                    // 불러오기는 세 섹션을 한꺼번에 갈아끼운다.
+                    saveSections({
+                        tasks: tasks,
+                        categories: categories,
+                        memoPadData: document.getElementById('memoPad').value
+                    });
+                    renderCategories();
+                    renderAllTables();
+                    renderCalendar();
                     alert("데이터를 성공적으로 불러왔습니다!");
                 } catch (error) {
                     alert("데이터를 불러오는 중 오류가 발생했습니다.");

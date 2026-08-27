@@ -10,7 +10,7 @@ Task Manager는 빌드 단계가 없는 순수 바닐라 Electron 앱입니다(`
 
 | 파일 | 용도 |
 |---|---|
-| `.claude/skills/run-task-manager/smoke.mjs` | D-day / 메모 디바운스 저장 / 위젯↔메인 동기화를 한 번에 검증 (15개 체크) |
+| `.claude/skills/run-task-manager/smoke.mjs` | D-day / 메모 디바운스 저장 / 위젯↔메인 동기화 / 섹션 병합 저장을 한 번에 검증 (18개 체크) |
 | `.claude/skills/run-task-manager/driver.mjs` | 명령을 한 줄씩 받아 앱을 조작하는 드라이버 (클릭·입력·스크린샷) |
 
 두 파일 모두 `lib.mjs`를 씁니다. **아래 경로는 전부 프로젝트 루트 기준입니다.**
@@ -141,3 +141,4 @@ Claude Code 안에서 실행한다면 `env -u ELECTRON_RUN_AS_NODE npx electron 
 | `Timeout ... #masterTableContainer to be visible` | 비활성 탭. `#calendarGrid`를 기다릴 것 |
 | 입력했는데 화면/디스크에 아무 반영이 없음 | `keyboard.type` 대신 `typeInto`(드라이버 `type` 명령) 사용 |
 | 테스트가 이상하게 실패하고 창이 계속 남아 있음 | 이전 실행 잔여 프로세스: `taskkill //F //IM electron.exe //T` |
+| `page.screenshot: Timeout 30000ms exceeded` (fonts loaded 직후 멈춤) | 같은 원인 — 이전 실행의 electron이 살아 있으면 새 창이 그려지지 않는다. 위 `taskkill` 후 재실행 |

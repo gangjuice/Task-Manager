@@ -124,13 +124,9 @@
         // 📌 메인 창과 동일하게 0.5초 디바운스 저장 (글자마다 파일 쓰기 방지)
         let memoSaveTimer = null;
 
+        // 위젯이 소유한 섹션은 메모뿐이다. 업무/분류는 보내지 않는다.
         function persistData() {
-            const backupData = {
-                tasks: tasks,
-                categories: categories,
-                memoPadData: memoPadData
-            };
-            ipcRenderer.send('save-data', JSON.stringify(backupData));
+            ipcRenderer.send('save-sections', { memoPadData: memoPadData });
         }
 
         function flushMemoSave() {
@@ -154,11 +150,10 @@
         window.addEventListener('blur', flushMemoSave);
         window.addEventListener('beforeunload', flushMemoSave);
 
-        ipcRenderer.on('sync-data', (event, data) => {
+        // 다른 창이 바꾼 섹션만 도착한다.
+        ipcRenderer.on('sync-sections', (event, patch) => {
             try {
-                const parsed = JSON.parse(data);
-                if (parsed.tasks) tasks = parsed.tasks;
-                if (parsed.categories) categories = parsed.categories;
+                const parsed = patch || {};
                 if (parsed.memoPadData !== undefined) {
                     const memoEl = document.getElementById('widgetMemo');
                     // 📌 메인 창과 동일한 규칙: 저장 대기중인 내 입력이 없을 때만 반영한다.
@@ -169,22 +164,24 @@
                         try { memoEl.setSelectionRange(pos, pos); } catch (e) {}
                     }
                 }
-                render();
+                // 달력은 업무가 바뀌었을 때만 다시 그린다.
+                if (parsed.tasks || parsed.categories) {
+                    if (parsed.tasks) tasks = parsed.tasks;
+                    if (parsed.categories) categories = parsed.categories;
+                    render();
+                }
             } catch(e) {}
         });
 
         async function init() {
-            const data = await ipcRenderer.invoke('load-data');
-            if (data) {
-                try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.tasks) tasks = parsed.tasks;
-                    if (parsed.categories) categories = parsed.categories;
-                    if (parsed.memoPadData !== undefined) {
-                        memoPadData = parsed.memoPadData;
-                        document.getElementById('widgetMemo').value = memoPadData;
-                    }
-                } catch(e) {}
+            const doc = await ipcRenderer.invoke('load-data');
+            if (doc) {
+                if (Array.isArray(doc.tasks)) tasks = doc.tasks;
+                if (Array.isArray(doc.categories) && doc.categories.length) categories = doc.categories;
+                if (doc.memoPadData !== undefined) {
+                    memoPadData = doc.memoPadData;
+                    document.getElementById('widgetMemo').value = memoPadData;
+                }
             }
             render();
         }

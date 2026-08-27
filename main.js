@@ -68,18 +68,50 @@ ipcMain.on('set-always-on-top', (event, isTop) => {
     if (widgetWindow) widgetWindow.setAlwaysOnTop(isTop);
 });
 
-ipcMain.handle('load-data', () => {
-    if (fs.existsSync(dataFilePath)) return fs.readFileSync(dataFilePath, 'utf8');
-    return null; 
-});
+// 📌 데이터 파일은 여러 창이 함께 쓴다.
+// 각 창은 자기가 바꾼 섹션만 보내고(save-sections), 파일 병합은 여기 한 곳에서만 한다.
+// 창이 문서 전체를 통째로 써내면, 그 창이 들고 있던 낡은 값이 남의 데이터를 덮어쓴다.
+function readDoc() {
+    if (!fs.existsSync(dataFilePath)) return {};
+    const raw = fs.readFileSync(dataFilePath, 'utf8');
+    try {
+        const doc = JSON.parse(raw);
+        return (doc && typeof doc === 'object') ? doc : {};
+    } catch (e) {
+        // 파일이 깨졌다면 덮어쓰기 전에 원본을 남긴다. 그냥 진행하면 전체 데이터가 사라진다.
+        try { fs.writeFileSync(dataFilePath.replace(/\.json$/, '') + '.손상됨.json', raw); } catch (e2) {}
+        return {};
+    }
+}
 
-ipcMain.on('save-data', (event, data) => {
-    fs.writeFileSync(dataFilePath, data);
+function writeDoc(doc) {
+    const json = JSON.stringify(doc, null, 2);
+    const tmp = dataFilePath + '.tmp';
+    try {
+        // 임시 파일에 쓰고 바꿔치기한다. 쓰는 도중에 앱이 죽어도 원본이 남는다.
+        fs.writeFileSync(tmp, json);
+        fs.renameSync(tmp, dataFilePath);
+    } catch (e) {
+        // OneDrive 등이 파일을 잠그면 rename이 실패할 수 있다. 그때는 직접 쓴다.
+        fs.writeFileSync(dataFilePath, json);
+    }
+}
+
+ipcMain.handle('load-data', () => readDoc());
+
+// patch 예: { tasks: [...] } — 바뀐 섹션만 담긴 객체
+ipcMain.on('save-sections', (event, patch) => {
+    if (!patch || typeof patch !== 'object') return;
+
+    const doc = readDoc();
+    Object.keys(patch).forEach(section => { doc[section] = patch[section]; });
+    writeDoc(doc);
+
     // 📌 저장을 요청한 창은 이미 최신 상태이므로 제외한다.
-    // (자기 자신에게 되돌아온 sync-data 때문에 저장할 때마다 화면이 한 번 더 그려지던 문제)
+    // (자기 자신에게 되돌아온 신호 때문에 저장할 때마다 화면이 한 번 더 그려지던 문제)
     BrowserWindow.getAllWindows().forEach(win => {
         if (win.webContents.id !== event.sender.id) {
-            win.webContents.send('sync-data', data);
+            win.webContents.send('sync-sections', patch);
         }
     });
 });

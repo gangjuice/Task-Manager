@@ -2,6 +2,7 @@
 // 앱을 띄워 D-day 표시 / 메모 디바운스 저장 / 위젯↔메인 동기화를 실제 UI에서 검증한다.
 //   node .claude/skills/run-task-manager/smoke.mjs
 // 통과하면 exit 0, 하나라도 실패하면 exit 1. 스크린샷은 SHOT_DIR에 남는다.
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { launchApp, widgetPage, typeInto, switchTab, seedData, readData, makeTask, mkDate, sleep, SHOT_DIR } from './lib.mjs';
 
@@ -83,6 +84,24 @@ if (widget) {
   check('위젯 닫으면 메인 창만 남음', app2.windows().length === 1, `창 ${app2.windows().length}개`);
   await shot(main2, '05-back-to-main');
 }
+
+// ── 4) 섹션 병합 저장 — 남의 섹션을 덮어쓰지 않는가 (1단계의 핵심 보증) ──
+// 앱이 모르는 섹션을 디스크에 직접 넣어두고, 창이 자기 섹션을 저장했을 때 살아남는지 본다.
+// 예전의 '문서 전체 덮어쓰기' 방식이었다면 이 섹션은 그 순간 사라진다.
+const before = readData(dataFile);
+before.contacts = [{ id: 1, name: '병합테스트' }];
+fs.writeFileSync(dataFile, JSON.stringify(before, null, 2), 'utf8');
+
+await typeInto(main2, '#memoPad', '@');
+await sleep(1200);
+
+const merged = readData(dataFile);
+check('창이 모르는 섹션이 살아남음', merged?.contacts?.[0]?.name === '병합테스트',
+  `contacts=${JSON.stringify(merged?.contacts)}`);
+check('내가 소유한 섹션은 정상 저장', typeof merged?.memoPadData === 'string' && merged.memoPadData.endsWith('@'),
+  `memoPadData=${JSON.stringify(merged?.memoPadData)}`);
+check('기존 업무 섹션도 그대로', Array.isArray(merged?.tasks) && merged.tasks.length === 4,
+  `tasks ${merged?.tasks?.length}건`);
 
 await app2.close().catch(() => {});
 const failed = results.filter(r => !r.pass).length;
