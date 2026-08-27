@@ -10,7 +10,7 @@ Task Manager는 빌드 단계가 없는 순수 바닐라 Electron 앱입니다(`
 
 | 파일 | 용도 |
 |---|---|
-| `.claude/skills/run-task-manager/smoke.mjs` | D-day / 메모 디바운스 저장 / 위젯↔메인 동기화 / 섹션 병합 저장 / 트레이 상주를 한 번에 검증 (22개 체크) |
+| `.claude/skills/run-task-manager/smoke.mjs` | D-day / 메모 저장 / 위젯 동기화 / 섹션 병합 / 트레이 상주 / 연락처를 한 번에 검증 (37개 체크) |
 | `.claude/skills/run-task-manager/driver.mjs` | 명령을 한 줄씩 받아 앱을 조작하는 드라이버 (클릭·입력·스크린샷) |
 
 두 파일 모두 `lib.mjs`를 씁니다. **아래 경로는 전부 프로젝트 루트 기준입니다.**
@@ -85,7 +85,7 @@ CMDS
 | `launch [--real]` | 앱 실행. `--real`은 사용자의 실제 내 문서 데이터를 씁니다 |
 | `seed` | 어제/오늘/내일/일주일뒤 마감 업무 4건을 데이터 파일에 넣음 |
 | `restart` | 앱 재시작 (앱은 시작할 때 데이터를 한 번만 읽음 — `seed` 후 필수) |
-| `tab <n>` | 0=대시보드 1=생각나는대로 적기 2=마스터 3=오늘 할 일 4=완료 5=설정 |
+| `tab <n>` | 0=대시보드 1=생각나는대로 적기 2=마스터 3=오늘 할 일 4=연락처 5=완료 6=설정 |
 | `use main\|widget` | 이후 명령을 어느 창에 보낼지 지정 |
 | `ss [이름]` | 스크린샷 → `%TEMP%\task-manager-shots\<이름>.png` |
 | `click <css>` / `click-text <문자열>` | 클릭 (DOM `.click()`) |

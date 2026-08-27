@@ -62,6 +62,39 @@
         .setting-item button { padding: 4px 8px; font-size: 12px; background: #e74c3c; }
         .toggle-switch { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 14px; cursor: pointer; }
         .toggle-switch input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        /* ── 연락처 ── */
+        .contact-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
+        #contactSearch { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        .contact-count { font-size: 13px; color: #7f8c8d; font-weight: bold; white-space: nowrap; }
+        .contact-empty { padding: 30px 10px; text-align: center; color: #7f8c8d; }
+        .tag-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; color: #fff; font-size: 11px; font-weight: bold; }
+        td.stale { color: #b8b8b8; }
+        .btn-inline { background: transparent; color: #3498db; border: 1px solid #d5dbdf; border-radius: 3px; padding: 2px 8px; font-size: 11px; font-weight: bold; cursor: pointer; margin-left: 6px; }
+        .btn-inline:hover { background: #ecf5fc; color: #2980b9; }
+        .btn-inline.danger { color: #e74c3c; }
+        .btn-inline.danger:hover { background: #fceceb; color: #c0392b; }
+        .btn-inline.primary { background: #2ecc71; color: #fff; border-color: #2ecc71; }
+        .btn-inline.primary:hover { background: #27ae60; color: #fff; }
+        .btn-mini { padding: 4px 8px; font-size: 12px; background: #7f8c8d; margin-right: 5px; }
+        .btn-mini.primary { background: #2ecc71; }
+        .btn-mini-del { background: #e74c3c; padding: 6px 10px; font-size: 12px; }
+        .phone-row { display: flex; gap: 6px; margin-bottom: 6px; }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 26px; }
+        .chip-item { background: #eef2f5; border-radius: 12px; padding: 3px 6px 3px 11px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+        .chip-item button { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 0 3px; font-size: 12px; font-weight: bold; }
+        .dup-warn { display: none; background: #fef5e7; border: 1px solid #f39c12; color: #9a6410; border-radius: 4px; padding: 9px 12px; font-size: 13px; margin-top: 8px; }
+        .cd-row { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; align-items: center; }
+        .cd-key { width: 90px; flex-shrink: 0; color: #7f8c8d; font-weight: bold; font-size: 12px; }
+        .cd-val { flex: 1; }
+        .phone-value { font-family: 'Consolas', monospace; font-size: 15px; }
+        .note-item { background: #f8f9fa; border-left: 3px solid #3498db; padding: 9px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0; }
+        .note-head { display: flex; justify-content: space-between; align-items: center; }
+        .note-at { font-size: 11px; color: #7f8c8d; font-weight: bold; }
+        .note-text { font-size: 14px; white-space: pre-wrap; margin-top: 5px; line-height: 1.5; }
+        .note-edit { width: 100%; min-height: 70px; font-family: inherit; font-size: 14px; padding: 8px; border: 1px solid #3498db; border-radius: 4px; box-sizing: border-box; }
+        .note-scroll { max-height: 300px; overflow-y: auto; padding-right: 4px; }
+        .color-dot { width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; vertical-align: middle; margin-right: 8px; background: none; }
+        .use-count { font-size: 11px; color: #7f8c8d; background: #ecf0f1; padding: 1px 7px; border-radius: 8px; margin-left: 6px; }
     </style>
 </head>
 <body>
@@ -120,6 +153,117 @@
                     <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeEditModal()">취소</button>
                     <button type="button" style="background:#2ecc71; width:150px;" onclick="saveEditedTask()">저장하기</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="contactContextMenu" class="context-menu">
+        <ul>
+            <li class="edit-btn" onclick="contactMenuEdit()">✏️ 수정하기</li>
+            <li onclick="contactMenuArchive()"><span id="contactArchiveLabel">📥 보관하기</span></li>
+            <li class="delete-btn" onclick="contactMenuDelete()">🗑️ 삭제하기</li>
+        </ul>
+    </div>
+
+    <datalist id="orgOptions"></datalist>
+    <datalist id="projectOptions"></datalist>
+
+    <div id="contactFormModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="contactFormTitle">➕ 새 연락처</h2>
+                <button class="btn-close" onclick="closeContactForm()">✖</button>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>이름</label>
+                    <input type="text" id="cf_name" placeholder="못 받았으면 비워두세요">
+                </div>
+                <div class="form-group">
+                    <label>직함 / 직급</label>
+                    <input type="text" id="cf_title" placeholder="ex) 주무관, 소장">
+                </div>
+                <div class="form-group">
+                    <label>소속</label>
+                    <input type="text" id="cf_org" list="orgOptions" placeholder="고르거나 새로 입력">
+                </div>
+                <div class="form-group">
+                    <label>구분</label>
+                    <select id="cf_tag"></select>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>연락처</label>
+                    <div id="cf_phones"></div>
+                    <button type="button" class="btn-inline" style="align-self: flex-start; margin: 4px 0 0;" onclick="addDraftPhone()">+ 번호 추가</button>
+                    <div id="cf_dupWarn" class="dup-warn"></div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>이메일</label>
+                    <input type="text" id="cf_email" placeholder="공문·자료 보낼 주소">
+                </div>
+
+                <div class="form-group full-width">
+                    <label>관련 프로젝트 (여러 개 가능)</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" id="cf_projectInput" list="projectOptions" placeholder="고르거나 새로 입력 후 Enter" style="flex: 1;"
+                               onkeydown="if(event.key==='Enter'){ event.preventDefault(); addDraftProject(); }">
+                        <button type="button" style="background:#3498db;" onclick="addDraftProject()">추가</button>
+                    </div>
+                    <div class="chip-list" id="cf_projectChips"></div>
+                </div>
+
+                <div class="form-group full-width" id="cf_firstNoteRow">
+                    <label>첫 기록 (지금 통화 내용)</label>
+                    <input type="text" id="cf_firstNote" placeholder="ex) 준공서류 8/30까지 요청">
+                </div>
+
+                <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeContactForm()">취소</button>
+                    <button type="button" style="background:#2ecc71; width:150px;" onclick="saveContactForm()">저장하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="contactDetailModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="cd_title"></h2>
+                <div>
+                    <button type="button" class="btn-inline" onclick="editFromDetail()">✏️ 수정</button>
+                    <button class="btn-close" onclick="closeContactDetail()">✖</button>
+                </div>
+            </div>
+
+            <div id="cd_info" style="margin-bottom: 18px;"></div>
+
+            <div style="background:#f4f7f6; border-radius:6px; padding:12px; margin-bottom:14px;">
+                <label style="display:block; margin-bottom:6px;">📝 새 기록 추가</label>
+                <textarea id="cd_newNote" style="width:100%; height:64px; box-sizing:border-box; resize:vertical;"
+                          placeholder="통화 내용을 적으세요. Ctrl+Enter로 바로 저장됩니다."
+                          onkeydown="if(event.key==='Enter' && (event.ctrlKey||event.metaKey)) addContactNote();"></textarea>
+                <div style="text-align:right; margin-top:6px;">
+                    <button type="button" style="background:#2ecc71; padding:6px 16px; font-size:13px;" onclick="addContactNote()">기록 남기기</button>
+                </div>
+            </div>
+
+            <div class="note-scroll" id="cd_notes"></div>
+        </div>
+    </div>
+
+    <div id="listDeleteModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2>⚠️ 쓰는 중인 항목입니다</h2>
+                <button class="btn-close" onclick="closeListDeleteModal()">✖</button>
+            </div>
+            <p id="ld_message" style="font-size: 14px; line-height: 1.6; margin: 0 0 14px;"></p>
+            <select id="ld_target" style="width: 100%; margin-bottom: 16px;"></select>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeListDeleteModal()">취소</button>
+                <button type="button" style="background:#e74c3c; width:150px;" onclick="confirmDeleteListItem()">삭제하기</button>
             </div>
         </div>
     </div>
@@ -183,6 +327,7 @@
         <button type="button" class="tab-btn" onclick="switchTab(event, 'brainstorm')">생각나는대로 적기</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">마스터 리스트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'today')">오늘 할 일</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'contacts')">📇 연락처</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'completed')">✅ 완료</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
     </div>
@@ -211,6 +356,22 @@
     <div id="today" class="tab-content">
         <h2>🔥 오늘 할 일 (마스터 리스트에서 체크한 항목)</h2>
         <div class="table-responsive" id="todayTableContainer"></div>
+    </div>
+
+    <div id="contacts" class="tab-content">
+        <h2>📇 업무용 연락처 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·보관·삭제 / 열 제목 우클릭: 필터</span></h2>
+
+        <div class="contact-toolbar">
+            <input type="text" id="contactSearch" placeholder="이름 · 소속 · 번호 · 프로젝트 · 기록 내용으로 찾기 (하이픈 없이 숫자만 쳐도 됩니다)"
+                   oninput="setContactSearch(this.value)">
+            <span class="contact-count" id="contactCount">0명</span>
+            <label class="toggle-switch" style="font-size: 13px;">
+                <input type="checkbox" id="showArchivedCheckbox" onchange="toggleArchivedView()"> 보관함 보기
+            </label>
+            <button type="button" class="btn-new-task" onclick="openContactForm(null)">➕ 새 연락처</button>
+        </div>
+
+        <div class="table-responsive" id="contactTableContainer"></div>
     </div>
 
     <div id="completed" class="tab-content">
@@ -242,6 +403,46 @@
         </div>
         
         <div class="setting-section">
+            <h3>📇 연락처 목록 관리</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
+                이름을 바꾸면 그 항목을 쓰던 연락처도 함께 따라갑니다. 쓰는 중인 항목을 지울 때는 어디로 옮길지 먼저 물어봅니다.<br>
+                소속과 프로젝트는 연락처를 입력할 때 자동으로 쌓이므로, 오타 정리는 여기서 하세요.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+                <div>
+                    <h4 style="margin: 0 0 10px; font-size: 14px; color: #2c3e50;">구분 (발주처 · 민원인 …)</h4>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <input type="text" id="newTagInput" placeholder="새 구분" style="flex: 1;"
+                               onkeydown="if(event.key==='Enter') addListItem('tags','newTagInput')">
+                        <button type="button" style="background-color: #2ecc71;" onclick="addListItem('tags','newTagInput')">추가</button>
+                    </div>
+                    <ul class="setting-list" id="tagListContainer" style="max-width: none;"></ul>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 10px; font-size: 14px; color: #2c3e50;">소속</h4>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <input type="text" id="newOrgInput" placeholder="새 소속" style="flex: 1;"
+                               onkeydown="if(event.key==='Enter') addListItem('orgs','newOrgInput')">
+                        <button type="button" style="background-color: #2ecc71;" onclick="addListItem('orgs','newOrgInput')">추가</button>
+                    </div>
+                    <ul class="setting-list" id="orgListContainer" style="max-width: none;"></ul>
+                </div>
+
+                <div>
+                    <h4 style="margin: 0 0 10px; font-size: 14px; color: #2c3e50;">관련 프로젝트</h4>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <input type="text" id="newProjectInput" placeholder="새 프로젝트" style="flex: 1;"
+                               onkeydown="if(event.key==='Enter') addListItem('projects','newProjectInput')">
+                        <button type="button" style="background-color: #2ecc71;" onclick="addListItem('projects','newProjectInput')">추가</button>
+                    </div>
+                    <ul class="setting-list" id="projectListContainer" style="max-width: none;"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="setting-section">
             <h3>💾 수동 백업 및 복구 (타 PC 이동용)</h3>
             <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
                 ※ 현재 데이터는 "내 문서" 폴더에 자동 저장되고 있습니다. 다른 PC로 데이터를 옮길 때만 아래 기능을 사용하세요.
@@ -263,7 +464,7 @@
         let savedMemo = "";
         
         let currentDate = new Date(); 
-        let activeFilters = { masterTable: {}, todayTable: {}, completedTable: {} };
+        let activeFilters = { masterTable: {}, todayTable: {}, completedTable: {}, contactTable: {} };
 
         // 다른 창이 바꾼 섹션만 도착한다. 없는 섹션은 건드리지 않는다.
         ipcRenderer.on('sync-sections', (event, patch) => {
@@ -280,6 +481,14 @@
                         memoEl.value = savedMemo;
                         try { memoEl.setSelectionRange(pos, pos); } catch (e) {}
                     }
+                }
+                if (parsed.contacts || parsed.tags || parsed.orgs || parsed.projects) {
+                    if (parsed.contacts) contacts = parsed.contacts;
+                    if (parsed.tags) tags = parsed.tags;
+                    if (parsed.orgs) orgs = parsed.orgs;
+                    if (parsed.projects) projects = parsed.projects;
+                    renderContacts();
+                    renderSettingLists();
                 }
                 // 메모만 바뀐 경우에는 표와 달력을 다시 그릴 이유가 없다.
                 if (parsed.tasks || parsed.categories) {
@@ -307,6 +516,10 @@
                 if (Array.isArray(doc.tasks)) tasks = doc.tasks;
                 if (Array.isArray(doc.categories) && doc.categories.length) categories = doc.categories;
                 if (doc.memoPadData !== undefined) savedMemo = doc.memoPadData;
+                if (Array.isArray(doc.contacts)) contacts = doc.contacts;
+                if (Array.isArray(doc.tags) && doc.tags.length) tags = doc.tags;
+                if (Array.isArray(doc.orgs)) orgs = doc.orgs;
+                if (Array.isArray(doc.projects)) projects = doc.projects;
             }
             
             const isAutoStart = await ipcRenderer.invoke('get-autostart');
@@ -316,6 +529,8 @@
             renderCategories();
             renderAllTables();
             renderCalendar();
+            renderContacts();
+            renderSettingLists();
         }
 
         // 바뀐 섹션만 저장한다. 내가 안 건드린 섹션은 파일의 값이 그대로 유지된다.
@@ -367,9 +582,8 @@
             today.setHours(0,0,0,0);
             // 'YYYY-MM-DD'를 new Date()에 그대로 넣으면 UTC 자정으로 해석되어
             // 한국 시간(UTC+9) 기준으로 하루가 밀린다. 연/월/일을 쪼개 로컬 자정으로 맞춘다.
-            const [y, m, d] = dueDate.split('-').map(Number);
-            if(!y || !m || !d) return { text: '-', color: 'black' };
-            const target = new Date(y, m - 1, d);
+            const target = parseLocalDate(dueDate);
+            if (!target) return { text: '-', color: 'black' };
             const diffTime = target - today;
             const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
@@ -454,6 +668,8 @@
         window.addEventListener('click', function(e) {
             rowMenu.style.display = 'none';
             headerMenu.style.display = 'none';
+            const cm = document.getElementById('contactContextMenu');
+            if (cm) cm.style.display = 'none';
         });
 
         function applyFilter(value) {
@@ -919,6 +1135,672 @@
                 dayDiv.innerHTML = dateHtml;
                 grid.appendChild(dayDiv);
             }
+        }
+
+
+        // ══════════════════════════════════════════════════════════════
+        // 연락처
+        // ══════════════════════════════════════════════════════════════
+
+        let contacts = [];
+        let tags = [
+            { name: '발주처', color: '#3498db' },
+            { name: '시공사', color: '#2ecc71' },
+            { name: '감리',   color: '#9b59b6' },
+            { name: '민원인', color: '#e67e22' },
+            { name: '내부',   color: '#7f8c8d' }
+        ];
+        let orgs = [];
+        let projects = [];
+
+        let contactSearchText = '';
+        let showArchived = false;
+        let contactContextId = null;
+        let editingContactId = null;   // null이면 신규 등록
+        let detailContactId = null;
+        let draftPhones = [];
+        let draftProjects = [];
+        let pendingListDelete = null;
+
+        // HTML로 넣는 값은 반드시 이걸 거친다. 이름에 <, & 같은 글자가 들어가도 안전해야 한다.
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
+
+        // 📌 'YYYY-MM-DD'를 new Date()에 그대로 넣으면 UTC 자정으로 해석된다.
+        // 날짜 계산은 전부 이 함수를 거쳐 로컬 자정으로 맞춘다.
+        function parseLocalDate(str) {
+            if (!str) return null;
+            const [y, m, d] = String(str).split('T')[0].split('-').map(Number);
+            if (!y || !m || !d) return null;
+            return new Date(y, m - 1, d);
+        }
+
+        function todayLocal() {
+            const t = new Date();
+            t.setHours(0, 0, 0, 0);
+            return t;
+        }
+
+        function daysSince(str) {
+            const from = parseLocalDate(str);
+            if (!from) return null;
+            return Math.round((todayLocal() - from) / (1000 * 60 * 60 * 24));
+        }
+
+        // 📌 초까지 남긴다. 통화 중에는 1분 안에 두 번 적는 일이 흔한데,
+        // 분 단위까지만 기록하면 두 기록의 시각이 같아져 최신순 정렬이 뒤집힌다.
+        function nowStamp() {
+            const d = new Date(), p = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+                   'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        }
+
+        // 📌 번호는 숫자만 저장한다. 010-1234-5678 과 01012345678 이 다른 사람이 되면 중복 감지가 무너진다.
+        function normalizePhone(v) { return String(v == null ? '' : v).replace(/[^0-9]/g, ''); }
+
+        function formatPhone(v) {
+            const d = normalizePhone(v);
+            if (!d) return '';
+            if (d.startsWith('02')) {
+                if (d.length === 9)  return d.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3');
+                if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+            }
+            if (d.length === 8 && /^1[5-9]/.test(d)) return d.replace(/(\d{4})(\d{4})/, '$1-$2');
+            if (d.length === 10) return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+            if (d.length === 11) return d.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+            return d;
+        }
+
+        function tagColor(name) {
+            const t = tags.find(t => t.name === name);
+            return t ? t.color : '#95a5a6';
+        }
+
+        function saveContacts() {
+            saveSections({ contacts: contacts });
+            renderContacts();
+        }
+
+        function saveLists() {
+            saveSections({ tags: tags, orgs: orgs, projects: projects });
+            renderSettingLists();
+            renderContacts();
+        }
+
+        // 소속·프로젝트는 입력하면서 자동으로 목록에 쌓인다. 정리는 설정에서 한다.
+        function rememberOrg(name) { if (name && !orgs.includes(name)) orgs.push(name); }
+        function rememberProject(name) { if (name && !projects.includes(name)) projects.push(name); }
+
+        // ── 목록 ──────────────────────────────────────────────────────
+
+        function setContactSearch(v) {
+            contactSearchText = v;
+            renderContacts();
+        }
+
+        function toggleArchivedView() {
+            showArchived = document.getElementById('showArchivedCheckbox').checked;
+            renderContacts();
+        }
+
+        function matchesSearch(c, q, qDigits) {
+            if (!q) return true;
+            const hay = [c.name, c.title, c.org, c.tag, c.email, (c.projects || []).join(' ')]
+                .filter(Boolean).join(' ').toLowerCase();
+            if (hay.includes(q)) return true;
+            if (qDigits && (c.phones || []).some(p => normalizePhone(p.value).includes(qDigits))) return true;
+            return (c.notes || []).some(n => String(n.text || '').toLowerCase().includes(q));
+        }
+
+        function renderContacts() {
+            const container = document.getElementById('contactTableContainer');
+            if (!container) return;
+
+            const q = contactSearchText.trim().toLowerCase();
+            const qDigits = normalizePhone(contactSearchText);
+
+            let list = contacts.filter(c => showArchived ? c.archived : !c.archived);
+            list = list.filter(c => matchesSearch(c, q, qDigits));
+
+            // 마지막 기록이 최신인 사람부터. 기록이 없으면 등록일로 대신한다.
+            list.sort((a, b) => String(b.lastNoteAt || b.createdAt || '')
+                .localeCompare(String(a.lastNoteAt || a.createdAt || '')));
+
+            const countEl = document.getElementById('contactCount');
+            if (countEl) countEl.innerText = list.length + '명';
+
+            if (!list.length) {
+                container.innerHTML = '<p class="contact-empty">' +
+                    (contacts.length ? '검색 결과가 없습니다.' : '아직 등록된 연락처가 없습니다. 오른쪽 위 “새 연락처”로 추가하세요.') +
+                    '</p>';
+                return;
+            }
+
+            const cols = ['이름', '직함', '소속', '구분', '연락처', '관련 프로젝트', '마지막 기록', '경과'];
+            let html = '<table id="contactTable"><thead><tr>' +
+                cols.map((name, i) =>
+                    '<th class="sortable" style="cursor:pointer;"' +
+                    ' onclick="sortTableDOM(\'contactTable\', ' + i + ')"' +
+                    ' oncontextmenu="showHeaderMenu(event, \'contactTable\', ' + i + ')"' +
+                    ' title="좌클릭: 정렬 ↕ / 우클릭: 필터 ▽">' + name + ' <span class="filter-icon">▼</span></th>'
+                ).join('') + '</tr></thead><tbody>';
+
+            list.forEach(c => {
+                const days = daysSince(c.lastNoteAt || c.createdAt);
+                const elapsed = days === null ? '-' : (days === 0 ? '오늘' : days + '일');
+                const stale = (days !== null && days >= 365) ? ' class="stale"' : '';
+                const phones = (c.phones || []).filter(p => p.value)
+                    .map(p => '<div>' + esc(p.label) + ' ' + esc(formatPhone(p.value)) + '</div>').join('') || '-';
+
+                html += '<tr onclick="openContactDetail(' + c.id + ')"' +
+                        ' oncontextmenu="showContactMenu(event, ' + c.id + ')" style="cursor:pointer;">' +
+                    '<td style="text-align:left; font-weight:bold;">' + (esc(c.name) || '<span style="color:#aaa;">(이름 없음)</span>') + '</td>' +
+                    '<td>' + (esc(c.title) || '-') + '</td>' +
+                    '<td style="text-align:left;">' + (esc(c.org) || '-') + '</td>' +
+                    '<td>' + (c.tag ? '<span class="tag-badge" style="background:' + tagColor(c.tag) + '">' + esc(c.tag) + '</span>' : '-') + '</td>' +
+                    '<td style="text-align:left;">' + phones + '</td>' +
+                    '<td style="text-align:left;">' + (esc((c.projects || []).join(', ')) || '-') + '</td>' +
+                    '<td>' + esc(String(c.lastNoteAt || c.createdAt || '-').split('T')[0]) + '</td>' +
+                    '<td' + stale + '>' + elapsed + '</td>' +
+                    '</tr>';
+            });
+
+            container.innerHTML = html + '</tbody></table>';
+        }
+
+        // ── 줄 우클릭 메뉴 ────────────────────────────────────────────
+
+        function showContactMenu(e, id) {
+            e.preventDefault();
+            e.stopPropagation();
+            contactContextId = id;
+            const c = contacts.find(x => x.id === id);
+            document.getElementById('contactArchiveLabel').innerText = (c && c.archived) ? '📤 보관 해제' : '📥 보관하기';
+            rowMenu.style.display = 'none';
+            headerMenu.style.display = 'none';
+            const menu = document.getElementById('contactContextMenu');
+            menu.style.display = 'block';
+            menu.style.left = e.pageX + 'px';
+            menu.style.top = e.pageY + 'px';
+        }
+
+        function contactMenuEdit()    { if (contactContextId) openContactForm(contactContextId); }
+
+        function contactMenuArchive() {
+            const c = contacts.find(x => x.id === contactContextId);
+            if (!c) return;
+            c.archived = !c.archived;
+            c.updatedAt = nowStamp();
+            saveContacts();
+        }
+
+        function contactMenuDelete() {
+            const c = contacts.find(x => x.id === contactContextId);
+            if (!c) return;
+            const label = c.name || '이름 없는 연락처';
+            if (!confirm('\'' + label + '\'을(를) 영구 삭제할까요?\n기록 ' + ((c.notes || []).length) + '건도 함께 사라지며 되돌릴 수 없습니다.\n\n지우는 대신 “보관”을 쓰면 나중에 다시 찾을 수 있습니다.')) return;
+            contacts = contacts.filter(x => x.id !== contactContextId);
+            saveContacts();
+        }
+
+        // ── 등록 / 수정 폼 ────────────────────────────────────────────
+
+        function openContactForm(id) {
+            editingContactId = id || null;
+            const c = id ? contacts.find(x => x.id === id) : null;
+
+            document.getElementById('contactFormTitle').innerText = c ? '✏️ 연락처 수정' : '➕ 새 연락처';
+            document.getElementById('cf_name').value  = c ? (c.name  || '') : '';
+            document.getElementById('cf_title').value = c ? (c.title || '') : '';
+            document.getElementById('cf_org').value   = c ? (c.org   || '') : '';
+            document.getElementById('cf_email').value = c ? (c.email || '') : '';
+
+            const tagSel = document.getElementById('cf_tag');
+            tagSel.innerHTML = '<option value="">(없음)</option>' +
+                tags.map(t => '<option value="' + esc(t.name) + '">' + esc(t.name) + '</option>').join('');
+            tagSel.value = c ? (c.tag || '') : '';
+
+            draftPhones = c && (c.phones || []).length
+                ? c.phones.map(p => ({ label: p.label || '휴대폰', value: p.value || '' }))
+                : [{ label: '휴대폰', value: '' }];
+            draftProjects = c ? (c.projects || []).slice() : [];
+
+            document.getElementById('cf_firstNoteRow').style.display = c ? 'none' : 'block';
+            document.getElementById('cf_firstNote').value = '';
+
+            renderDraftPhones();
+            renderDraftProjects();
+            renderDatalists();
+            checkDuplicate();
+
+            document.getElementById('contactFormModal').style.display = 'flex';
+            document.getElementById('cf_name').focus();
+        }
+
+        function closeContactForm() {
+            document.getElementById('contactFormModal').style.display = 'none';
+            editingContactId = null;
+        }
+
+        function renderDatalists() {
+            document.getElementById('orgOptions').innerHTML =
+                orgs.map(o => '<option value="' + esc(o) + '">').join('');
+            document.getElementById('projectOptions').innerHTML =
+                projects.map(p => '<option value="' + esc(p) + '">').join('');
+        }
+
+        function renderDraftPhones() {
+            const box = document.getElementById('cf_phones');
+            const labels = ['휴대폰', '사무실', '팩스', '기타'];
+            box.innerHTML = draftPhones.map((p, i) =>
+                '<div class="phone-row">' +
+                    '<select onchange="draftPhones[' + i + '].label = this.value" style="width:90px;">' +
+                        labels.map(l => '<option' + (l === p.label ? ' selected' : '') + '>' + l + '</option>').join('') +
+                    '</select>' +
+                    '<input type="text" value="' + esc(p.value) + '" placeholder="숫자만 넣어도 됩니다"' +
+                        ' oninput="draftPhones[' + i + '].value = this.value; checkDuplicate();" style="flex:1;">' +
+                    (draftPhones.length > 1
+                        ? '<button type="button" class="btn-mini-del" onclick="removeDraftPhone(' + i + ')">✖</button>'
+                        : '') +
+                '</div>'
+            ).join('');
+        }
+
+        function addDraftPhone() {
+            draftPhones.push({ label: '사무실', value: '' });
+            renderDraftPhones();
+        }
+
+        function removeDraftPhone(i) {
+            draftPhones.splice(i, 1);
+            renderDraftPhones();
+            checkDuplicate();
+        }
+
+        function renderDraftProjects() {
+            document.getElementById('cf_projectChips').innerHTML = draftProjects.map((p, i) =>
+                '<span class="chip-item">' + esc(p) +
+                '<button type="button" onclick="removeDraftProject(' + i + ')">✖</button></span>'
+            ).join('') || '<span style="color:#aaa; font-size:12px;">아직 없음</span>';
+        }
+
+        function addDraftProject() {
+            const input = document.getElementById('cf_projectInput');
+            const v = input.value.trim();
+            if (!v) return;
+            if (!draftProjects.includes(v)) draftProjects.push(v);
+            input.value = '';
+            renderDraftProjects();
+        }
+
+        function removeDraftProject(i) {
+            draftProjects.splice(i, 1);
+            renderDraftProjects();
+        }
+
+        // 📌 번호를 치는 동안 이미 있는 사람인지 알려준다.
+        // 같은 사람이 세 번 등록되는 걸 막는 장치.
+        function checkDuplicate() {
+            const warn = document.getElementById('cf_dupWarn');
+            const digits = draftPhones.map(p => normalizePhone(p.value)).filter(d => d.length >= 8);
+            let hit = null;
+            for (const d of digits) {
+                hit = contacts.find(c => c.id !== editingContactId &&
+                    (c.phones || []).some(p => normalizePhone(p.value) === d));
+                if (hit) break;
+            }
+            if (!hit) { warn.style.display = 'none'; return; }
+            warn.style.display = 'block';
+            warn.innerHTML = '⚠️ 이미 있는 번호입니다 — <b>' + (esc(hit.name) || '이름 없음') + '</b>' +
+                (hit.org ? ' (' + esc(hit.org) + ')' : '') +
+                ' <button type="button" class="btn-inline" onclick="jumpToExisting(' + hit.id + ')">그 연락처에 기록 추가</button>';
+        }
+
+        function jumpToExisting(id) {
+            closeContactForm();
+            openContactDetail(id);
+        }
+
+        function saveContactForm() {
+            const name  = document.getElementById('cf_name').value.trim();
+            const title = document.getElementById('cf_title').value.trim();
+            const org   = document.getElementById('cf_org').value.trim();
+            const email = document.getElementById('cf_email').value.trim();
+            const tag   = document.getElementById('cf_tag').value;
+            const phones = draftPhones
+                .filter(p => normalizePhone(p.value))
+                .map(p => ({ label: p.label, value: normalizePhone(p.value) }));
+
+            // 📌 필수값을 두지 않는다. 통화 중엔 이름만 듣거나 번호만 받는 경우가 있다.
+            if (!name && !phones.length && !org && !email) {
+                alert('이름이나 연락처 중 하나는 채워주세요.');
+                return;
+            }
+
+            rememberOrg(org);
+            draftProjects.forEach(rememberProject);
+
+            if (editingContactId) {
+                const c = contacts.find(x => x.id === editingContactId);
+                if (c) {
+                    // 📌 이름 오타를 고쳐도 lastNoteAt 은 건드리지 않는다.
+                    // 그래야 "마지막으로 함께 일한 날"이 정리 기준으로 남는다.
+                    Object.assign(c, { name, title, org, email, tag, phones, projects: draftProjects.slice() });
+                    c.updatedAt = nowStamp();
+                }
+            } else {
+                const stamp = nowStamp();
+                const firstNote = document.getElementById('cf_firstNote').value.trim();
+                contacts.push({
+                    id: Date.now(),
+                    name, title, org, email, tag, phones,
+                    projects: draftProjects.slice(),
+                    notes: firstNote ? [{ at: stamp, text: firstNote }] : [],
+                    createdAt: stamp.split('T')[0],
+                    updatedAt: stamp,
+                    lastNoteAt: firstNote ? stamp.split('T')[0] : '',
+                    archived: false
+                });
+            }
+
+            saveSections({ contacts: contacts, orgs: orgs, projects: projects });
+            renderContacts();
+            renderSettingLists();
+            closeContactForm();
+        }
+
+        // ── 상세 (기록 로그) ──────────────────────────────────────────
+
+        function openContactDetail(id) {
+            detailContactId = id;
+            renderContactDetail();
+            document.getElementById('contactDetailModal').style.display = 'flex';
+            const box = document.getElementById('cd_newNote');
+            if (box) box.focus();
+        }
+
+        function closeContactDetail() {
+            document.getElementById('contactDetailModal').style.display = 'none';
+            detailContactId = null;
+        }
+
+        function renderContactDetail() {
+            const c = contacts.find(x => x.id === detailContactId);
+            if (!c) return;
+
+            document.getElementById('cd_title').innerHTML =
+                (esc(c.name) || '(이름 없음)') + (c.title ? ' <span style="font-weight:normal; color:#7f8c8d;">' + esc(c.title) + '</span>' : '') +
+                (c.archived ? ' <span class="tag-badge" style="background:#95a5a6;">보관됨</span>' : '');
+
+            const rows = [];
+            if (c.org)  rows.push(['소속', esc(c.org)]);
+            if (c.tag)  rows.push(['구분', '<span class="tag-badge" style="background:' + tagColor(c.tag) + '">' + esc(c.tag) + '</span>']);
+            (c.phones || []).filter(p => p.value).forEach(p => {
+                rows.push([esc(p.label),
+                    '<span class="phone-value">' + esc(formatPhone(p.value)) + '</span>' +
+                    '<button type="button" class="btn-inline" onclick="copyText(\'' + esc(formatPhone(p.value)) + '\', this)">복사</button>']);
+            });
+            if (c.email) rows.push(['이메일', esc(c.email) +
+                '<button type="button" class="btn-inline" onclick="copyText(\'' + esc(c.email) + '\', this)">복사</button>']);
+            if ((c.projects || []).length) rows.push(['관련 프로젝트', esc(c.projects.join(', '))]);
+            rows.push(['등록일', esc(c.createdAt || '-')]);
+
+            document.getElementById('cd_info').innerHTML = rows.map(r =>
+                '<div class="cd-row"><span class="cd-key">' + r[0] + '</span><span class="cd-val">' + r[1] + '</span></div>'
+            ).join('');
+
+            const notes = (c.notes || []).slice()
+                .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+
+            document.getElementById('cd_notes').innerHTML = notes.length
+                ? notes.map((n, i) =>
+                    '<div class="note-item" id="note-' + i + '">' +
+                        '<div class="note-head">' +
+                            '<span class="note-at">' + esc(String(n.at || '').slice(0, 16).replace('T', ' ')) + '</span>' +
+                            '<span>' +
+                                '<button type="button" class="btn-inline" onclick="startEditNote(' + i + ')">수정</button>' +
+                                '<button type="button" class="btn-inline danger" onclick="deleteNote(' + i + ')">삭제</button>' +
+                            '</span>' +
+                        '</div>' +
+                        '<div class="note-text">' + esc(n.text) + '</div>' +
+                    '</div>'
+                  ).join('')
+                : '<p style="color:#7f8c8d; font-size:13px; padding: 8px 0;">아직 기록이 없습니다. 위에 통화 내용을 적어보세요.</p>';
+        }
+
+        function sortedNotes(c) {
+            return (c.notes || []).slice().sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+        }
+
+        function addContactNote() {
+            const box = document.getElementById('cd_newNote');
+            const text = box.value.trim();
+            if (!text) return;
+            const c = contacts.find(x => x.id === detailContactId);
+            if (!c) return;
+
+            const stamp = nowStamp();
+            c.notes = c.notes || [];
+            c.notes.push({ at: stamp, text: text });
+            c.lastNoteAt = stamp.split('T')[0];   // 표의 "경과"가 여기서 0으로 돌아간다
+            c.updatedAt = stamp;
+
+            box.value = '';
+            saveContacts();
+            renderContactDetail();
+        }
+
+        function startEditNote(index) {
+            const c = contacts.find(x => x.id === detailContactId);
+            if (!c) return;
+            const note = sortedNotes(c)[index];
+            if (!note) return;
+            const el = document.getElementById('note-' + index);
+            el.innerHTML =
+                '<textarea id="noteEdit-' + index + '" class="note-edit">' + esc(note.text) + '</textarea>' +
+                '<div style="text-align:right; margin-top:6px;">' +
+                    '<button type="button" class="btn-inline" onclick="renderContactDetail()">취소</button>' +
+                    '<button type="button" class="btn-inline primary" onclick="commitEditNote(' + index + ')">저장</button>' +
+                '</div>';
+            document.getElementById('noteEdit-' + index).focus();
+        }
+
+        function commitEditNote(index) {
+            const c = contacts.find(x => x.id === detailContactId);
+            if (!c) return;
+            const note = sortedNotes(c)[index];
+            const text = document.getElementById('noteEdit-' + index).value.trim();
+            if (note && text) {
+                note.text = text;
+                c.updatedAt = nowStamp();
+                // 📌 과거 기록을 고쳤다고 lastNoteAt 을 갱신하지 않는다.
+                saveContacts();
+            }
+            renderContactDetail();
+        }
+
+        function deleteNote(index) {
+            const c = contacts.find(x => x.id === detailContactId);
+            if (!c) return;
+            const note = sortedNotes(c)[index];
+            if (!note || !confirm('이 기록을 삭제할까요?')) return;
+
+            c.notes = c.notes.filter(n => n !== note);
+            const remain = sortedNotes(c);
+            c.lastNoteAt = remain.length ? String(remain[0].at).split('T')[0] : '';
+            c.updatedAt = nowStamp();
+            saveContacts();
+            renderContactDetail();
+        }
+
+        function editFromDetail() {
+            const id = detailContactId;
+            closeContactDetail();
+            openContactForm(id);
+        }
+
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const old = btn.innerText;
+                btn.innerText = '복사됨';
+                setTimeout(() => { btn.innerText = old; }, 1200);
+            }).catch(() => {});
+        }
+
+        // ── 설정: 구분 / 소속 / 프로젝트 목록 관리 ────────────────────
+
+        function listOf(kind) {
+            return kind === 'tags' ? tags.map(t => t.name) : (kind === 'orgs' ? orgs : projects);
+        }
+
+        function countUsage(kind, name) {
+            return contacts.filter(c =>
+                kind === 'tags' ? c.tag === name :
+                kind === 'orgs' ? c.org === name :
+                (c.projects || []).includes(name)
+            ).length;
+        }
+
+        function renderSettingLists() {
+            [['tags', 'tagListContainer'], ['orgs', 'orgListContainer'], ['projects', 'projectListContainer']]
+            .forEach(([kind, containerId]) => {
+                const box = document.getElementById(containerId);
+                if (!box) return;
+                const names = listOf(kind);
+                if (!names.length) {
+                    box.innerHTML = '<li class="setting-item" style="color:#aaa;">아직 없음</li>';
+                    return;
+                }
+                box.innerHTML = names.map((name, i) => {
+                    const used = countUsage(kind, name);
+                    const swatch = kind === 'tags'
+                        ? '<input type="color" class="color-dot" value="' + tags[i].color + '"' +
+                          ' onchange="setTagColor(' + i + ', this.value)" title="색 바꾸기">'
+                        : '';
+                    return '<li class="setting-item" id="li-' + kind + '-' + i + '">' +
+                        '<span>' + swatch + '<b>' + esc(name) + '</b>' +
+                        (used ? ' <span class="use-count">' + used + '명</span>' : '') + '</span>' +
+                        '<span>' +
+                            '<button type="button" class="btn-mini" onclick="startRename(\'' + kind + '\', ' + i + ')">수정</button>' +
+                            '<button type="button" onclick="requestDeleteListItem(\'' + kind + '\', ' + i + ')">삭제</button>' +
+                        '</span></li>';
+                }).join('');
+            });
+        }
+
+        function setTagColor(i, color) {
+            tags[i].color = color;
+            saveLists();
+        }
+
+        function addListItem(kind, inputId) {
+            const input = document.getElementById(inputId);
+            const v = input.value.trim();
+            if (!v) return;
+            if (listOf(kind).includes(v)) { alert('이미 있는 항목입니다.'); return; }
+            if (kind === 'tags') tags.push({ name: v, color: '#3498db' });
+            else if (kind === 'orgs') orgs.push(v);
+            else projects.push(v);
+            input.value = '';
+            saveLists();
+        }
+
+        function startRename(kind, i) {
+            const name = listOf(kind)[i];
+            const li = document.getElementById('li-' + kind + '-' + i);
+            li.innerHTML =
+                '<input type="text" id="renameInput" value="' + esc(name) + '" style="flex:1; margin-right:8px;"' +
+                ' onkeydown="if(event.key===\'Enter\') commitRename(\'' + kind + '\', ' + i + ');' +
+                ' if(event.key===\'Escape\') renderSettingLists();">' +
+                '<span>' +
+                    '<button type="button" class="btn-mini" onclick="renderSettingLists()">취소</button>' +
+                    '<button type="button" class="btn-mini primary" onclick="commitRename(\'' + kind + '\', ' + i + ')">저장</button>' +
+                '</span>';
+            const input = document.getElementById('renameInput');
+            input.focus();
+            input.select();
+        }
+
+        function commitRename(kind, i) {
+            const input = document.getElementById('renameInput');
+            if (!input) return;
+            const newName = input.value.trim();
+            const oldName = listOf(kind)[i];
+            if (!newName || newName === oldName) { renderSettingLists(); return; }
+            if (listOf(kind).includes(newName)) { alert('이미 있는 항목입니다.'); return; }
+
+            if (kind === 'tags') tags[i].name = newName;
+            else if (kind === 'orgs') orgs[i] = newName;
+            else projects[i] = newName;
+
+            // 📌 이름을 바꾸면 쓰고 있던 연락처도 같이 따라간다.
+            // (업무 "분류"는 이게 안 돼서, 분류를 지우면 그 업무의 분류가 조용히 비어버린다)
+            contacts.forEach(c => {
+                if (kind === 'tags' && c.tag === oldName) c.tag = newName;
+                if (kind === 'orgs' && c.org === oldName) c.org = newName;
+                if (kind === 'projects' && c.projects) {
+                    c.projects = c.projects.map(p => p === oldName ? newName : p);
+                }
+            });
+
+            saveSections({ tags: tags, orgs: orgs, projects: projects, contacts: contacts });
+            renderSettingLists();
+            renderContacts();
+        }
+
+        function requestDeleteListItem(kind, i) {
+            const name = listOf(kind)[i];
+            const used = countUsage(kind, name);
+
+            if (!used) {
+                if (confirm('\'' + name + '\'을(를) 삭제할까요?')) doDeleteListItem(kind, i, null);
+                return;
+            }
+
+            // 📌 쓰는 중인 항목은 그냥 지우지 않는다. 어디로 옮길지 먼저 묻는다.
+            pendingListDelete = { kind: kind, index: i, name: name };
+            document.getElementById('ld_message').innerHTML =
+                '<b>' + esc(name) + '</b> 을(를) <b>' + used + '명</b>이 쓰고 있습니다.<br>이 사람들을 어떻게 할까요?';
+            const sel = document.getElementById('ld_target');
+            sel.innerHTML = '<option value="">(비우기)</option>' +
+                listOf(kind).filter(n => n !== name)
+                    .map(n => '<option value="' + esc(n) + '">' + esc(n) + '(으)로 옮기기</option>').join('');
+            document.getElementById('listDeleteModal').style.display = 'flex';
+        }
+
+        function closeListDeleteModal() {
+            document.getElementById('listDeleteModal').style.display = 'none';
+            pendingListDelete = null;
+        }
+
+        function confirmDeleteListItem() {
+            if (!pendingListDelete) return;
+            const target = document.getElementById('ld_target').value || null;
+            doDeleteListItem(pendingListDelete.kind, pendingListDelete.index, target);
+            closeListDeleteModal();
+        }
+
+        function doDeleteListItem(kind, i, moveTo) {
+            const name = listOf(kind)[i];
+
+            contacts.forEach(c => {
+                if (kind === 'tags' && c.tag === name) c.tag = moveTo || '';
+                if (kind === 'orgs' && c.org === name) c.org = moveTo || '';
+                if (kind === 'projects' && c.projects) {
+                    c.projects = c.projects.filter(p => p !== name);
+                    if (moveTo && !c.projects.includes(moveTo)) c.projects.push(moveTo);
+                }
+            });
+
+            if (kind === 'tags') tags.splice(i, 1);
+            else if (kind === 'orgs') orgs.splice(i, 1);
+            else projects.splice(i, 1);
+
+            saveSections({ tags: tags, orgs: orgs, projects: projects, contacts: contacts });
+            renderSettingLists();
+            renderContacts();
         }
 
         initApp();

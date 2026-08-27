@@ -104,6 +104,110 @@ check('기존 업무 섹션도 그대로', Array.isArray(merged?.tasks) && merge
   `tasks ${merged?.tasks?.length}건`);
 
 
+// ── 4.5) 연락처 ────────────────────────────────────────────────
+await switchTab(main2, 4);            // 0 대시보드 1 메모 2 마스터 3 오늘 4 연락처 5 완료 6 설정
+await sleep(400);
+
+// 등록: 번호는 하이픈을 넣어 치고, 저장은 숫자만 되어야 한다
+await main2.evaluate(() => openContactForm(null));
+await sleep(300);
+await main2.evaluate(() => {
+  document.getElementById('cf_name').value = '김철수';
+  document.getElementById('cf_title').value = '주무관';
+  document.getElementById('cf_org').value = '△△시청 도로과';
+  document.getElementById('cf_tag').value = '발주처';
+  document.getElementById('cf_firstNote').value = '착공계 관련 첫 통화';
+});
+await typeInto(main2, '#cf_phones input', '010-1234-5678', 15);
+await main2.evaluate(() => { document.getElementById('cf_projectInput').value = '신정로 단가공사'; addDraftProject(); });
+await main2.evaluate(() => saveContactForm());
+await sleep(900);
+
+const saved = readData(dataFile)?.contacts?.[0];
+check('연락처가 저장됨', saved?.name === '김철수', `name=${saved?.name}`);
+check('번호가 숫자만으로 정규화됨', saved?.phones?.[0]?.value === '01012345678', `value=${saved?.phones?.[0]?.value}`);
+check('첫 기록이 로그로 쌓임', saved?.notes?.length === 1, `notes=${saved?.notes?.length}`);
+check('소속/프로젝트가 목록에 자동 등록됨',
+  readData(dataFile)?.orgs?.includes('△△시청 도로과') && readData(dataFile)?.projects?.includes('신정로 단가공사'));
+
+const shown = await main2.evaluate(() => {
+  const tr = document.querySelector('#contactTable tbody tr');
+  return tr ? tr.innerText.replace(/\s+/g, ' ') : null;
+});
+check('목록에 하이픈 붙은 형태로 표시됨', !!shown && shown.includes('010-1234-5678'), `행=${shown}`);
+await shot(main2, '06-contacts');
+
+// 중복 감지: 같은 번호를 하이픈 없이 쳐도 잡아야 한다
+await main2.evaluate(() => openContactForm(null));
+await sleep(300);
+await typeInto(main2, '#cf_phones input', '01012345678', 15);
+await sleep(400);
+check('같은 번호를 다시 넣으면 경고',
+  await main2.evaluate(() => document.getElementById('cf_dupWarn').style.display === 'block'));
+await main2.evaluate(() => closeContactForm());
+
+// 검색: 하이픈 없이 숫자로 찾기
+await typeInto(main2, '#contactSearch', '12345678', 15);
+await sleep(400);
+check('숫자만으로 검색됨',
+  await main2.evaluate(() => document.querySelectorAll('#contactTable tbody tr').length) === 1);
+await main2.evaluate(() => { document.getElementById('contactSearch').value = ''; setContactSearch(''); });
+
+// 기록 추가 → lastNoteAt 이 오늘로
+const cid = saved.id;
+await main2.evaluate(id => openContactDetail(id), cid);
+await sleep(300);
+await typeInto(main2, '#cd_newNote', '준공서류 8/30까지 요청', 15);
+await main2.evaluate(() => addContactNote());
+await sleep(900);
+let c = readData(dataFile).contacts.find(x => x.id === cid);
+check('기록이 누적됨(덮어쓰지 않음)', c.notes.length === 2, `notes=${c.notes.length}`);
+check('마지막 기록일이 오늘로 갱신', c.lastNoteAt === mkDate(0), `lastNoteAt=${c.lastNoteAt}`);
+
+// 같은 분 안에 두 번 적어도 최신이 위로 와야 한다 (통화 중엔 흔한 일)
+await typeInto(main2, '#cd_newNote', '두 번째 기록', 10);
+await main2.evaluate(() => addContactNote());
+await sleep(700);
+const firstShown = await main2.evaluate(() => document.querySelector('#cd_notes .note-text')?.innerText);
+check('같은 분에 적은 기록도 최신이 맨 위', firstShown === '두 번째 기록', `맨 위=${firstShown}`);
+
+await main2.evaluate(() => closeContactDetail());
+
+// 이름을 고쳐도 '마지막 기록일'은 그대로여야 한다 (정리 기준이 흔들리면 안 됨)
+await main2.evaluate(id => openContactForm(id), cid);
+await sleep(300);
+await main2.evaluate(() => { document.getElementById('cf_name').value = '김철수(수정)'; saveContactForm(); });
+await sleep(900);
+c = readData(dataFile).contacts.find(x => x.id === cid);
+check('이름 수정은 마지막 기록일을 건드리지 않음',
+  c.name === '김철수(수정)' && c.lastNoteAt === mkDate(0), `name=${c.name} lastNoteAt=${c.lastNoteAt}`);
+
+// 설정에서 구분 이름을 바꾸면 쓰던 연락처도 따라간다
+await switchTab(main2, 6);
+await sleep(300);
+await main2.evaluate(() => startRename('tags', 0));
+await main2.evaluate(() => {
+  document.getElementById('renameInput').value = '발주처A';
+  commitRename('tags', 0);
+});
+await sleep(900);
+c = readData(dataFile).contacts.find(x => x.id === cid);
+check('구분 이름을 바꾸면 연락처도 따라감', c.tag === '발주처A', `tag=${c.tag}`);
+
+// 보관하면 기본 목록에서 사라진다
+await switchTab(main2, 4);
+await sleep(300);
+await main2.evaluate(id => { contactContextId = id; contactMenuArchive(); }, cid);
+await sleep(900);
+check('보관하면 기본 목록에서 빠짐',
+  await main2.evaluate(() => document.querySelectorAll('#contactTable tbody tr').length) === 0);
+await main2.evaluate(() => { document.getElementById('showArchivedCheckbox').checked = true; toggleArchivedView(); });
+await sleep(300);
+check('보관함 보기로는 다시 보임',
+  await main2.evaluate(() => document.querySelectorAll('#contactTable tbody tr').length) === 1);
+check('보관은 삭제가 아님', readData(dataFile).contacts.length === 1);
+await main2.evaluate(() => { document.getElementById('showArchivedCheckbox').checked = false; toggleArchivedView(); });
+
 // ── 5) 트레이 상주 — 메인 창을 닫아도 앱이 죽지 않는가 (2단계의 핵심 보증) ──
 // 앱이 Tray 생성에 실패했다면 여기까지 오지도 못한다(실행 자체가 죽는다).
 await app2.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].close(); });
