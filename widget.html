@@ -121,15 +121,38 @@
             document.body.style.backgroundColor = `rgba(255, 255, 255, ${this.value})`;
         });
 
-        document.getElementById('widgetMemo').addEventListener('input', function() {
-            memoPadData = this.value;
+        // 📌 메인 창과 동일하게 0.5초 디바운스 저장 (글자마다 파일 쓰기 방지)
+        let memoSaveTimer = null;
+
+        function persistData() {
             const backupData = {
                 tasks: tasks,
                 categories: categories,
                 memoPadData: memoPadData
             };
             ipcRenderer.send('save-data', JSON.stringify(backupData));
+        }
+
+        function flushMemoSave() {
+            if (memoSaveTimer) {
+                clearTimeout(memoSaveTimer);
+                memoSaveTimer = null;
+                persistData();
+            }
+        }
+
+        document.getElementById('widgetMemo').addEventListener('input', function() {
+            memoPadData = this.value;
+            if (memoSaveTimer) clearTimeout(memoSaveTimer);
+            memoSaveTimer = setTimeout(() => {
+                memoSaveTimer = null;
+                persistData();
+            }, 500);
         });
+
+        document.getElementById('widgetMemo').addEventListener('blur', flushMemoSave);
+        window.addEventListener('blur', flushMemoSave);
+        window.addEventListener('beforeunload', flushMemoSave);
 
         ipcRenderer.on('sync-data', (event, data) => {
             try {
@@ -137,10 +160,13 @@
                 if (parsed.tasks) tasks = parsed.tasks;
                 if (parsed.categories) categories = parsed.categories;
                 if (parsed.memoPadData !== undefined) {
-                    memoPadData = parsed.memoPadData;
                     const memoEl = document.getElementById('widgetMemo');
-                    if (document.activeElement !== memoEl) {
+                    // 📌 메인 창과 동일한 규칙: 저장 대기중인 내 입력이 없을 때만 반영한다.
+                    if (!memoSaveTimer && memoEl.value !== parsed.memoPadData) {
+                        const pos = memoEl.selectionStart;
+                        memoPadData = parsed.memoPadData;
                         memoEl.value = memoPadData;
+                        try { memoEl.setSelectionRange(pos, pos); } catch (e) {}
                     }
                 }
                 render();

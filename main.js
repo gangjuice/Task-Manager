@@ -75,8 +75,12 @@ ipcMain.handle('load-data', () => {
 
 ipcMain.on('save-data', (event, data) => {
     fs.writeFileSync(dataFilePath, data);
+    // 📌 저장을 요청한 창은 이미 최신 상태이므로 제외한다.
+    // (자기 자신에게 되돌아온 sync-data 때문에 저장할 때마다 화면이 한 번 더 그려지던 문제)
     BrowserWindow.getAllWindows().forEach(win => {
-        win.webContents.send('sync-data', data);
+        if (win.webContents.id !== event.sender.id) {
+            win.webContents.send('sync-data', data);
+        }
     });
 });
 
