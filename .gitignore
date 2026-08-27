@@ -1,0 +1,9 @@
+# npm install 이 만드는 폴더 (package.json 으로 언제든 재생성)
+node_modules/
+
+# npm run build 가 만드는 설치 파일
+dist/
+
+# Windows / OneDrive 가 만드는 부산물
+Thumbs.db
+desktop.ini
