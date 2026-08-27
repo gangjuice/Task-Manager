@@ -10,7 +10,7 @@ Task Manager는 빌드 단계가 없는 순수 바닐라 Electron 앱입니다(`
 
 | 파일 | 용도 |
 |---|---|
-| `.claude/skills/run-task-manager/smoke.mjs` | D-day / 메모 디바운스 저장 / 위젯↔메인 동기화 / 섹션 병합 저장을 한 번에 검증 (18개 체크) |
+| `.claude/skills/run-task-manager/smoke.mjs` | D-day / 메모 디바운스 저장 / 위젯↔메인 동기화 / 섹션 병합 저장 / 트레이 상주를 한 번에 검증 (22개 체크) |
 | `.claude/skills/run-task-manager/driver.mjs` | 명령을 한 줄씩 받아 앱을 조작하는 드라이버 (클릭·입력·스크린샷) |
 
 두 파일 모두 `lib.mjs`를 씁니다. **아래 경로는 전부 프로젝트 루트 기준입니다.**

@@ -40,6 +40,12 @@ export function prepareSandbox() {
   fs.mkdirSync(dir, { recursive: true });
   for (const f of APP_FILES) fs.copyFileSync(path.join(PROJECT_ROOT, f), path.join(dir, f));
 
+  // 트레이 아이콘 등 자산도 함께 옮긴다. 없으면 Tray 생성이 실패한다.
+  const assetsSrc = path.join(PROJECT_ROOT, 'assets');
+  if (fs.existsSync(assetsSrc)) {
+    fs.cpSync(assetsSrc, path.join(dir, 'assets'), { recursive: true });
+  }
+
   const mainPath = path.join(dir, 'main.js');
   const s = fs.readFileSync(mainPath, 'utf8');
   if (!s.includes(DATA_LINE_OLD)) {

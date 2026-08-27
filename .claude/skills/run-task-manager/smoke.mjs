@@ -103,6 +103,46 @@ check('내가 소유한 섹션은 정상 저장', typeof merged?.memoPadData ===
 check('기존 업무 섹션도 그대로', Array.isArray(merged?.tasks) && merged.tasks.length === 4,
   `tasks ${merged?.tasks?.length}건`);
 
+
+// ── 5) 트레이 상주 — 메인 창을 닫아도 앱이 죽지 않는가 (2단계의 핵심 보증) ──
+// 앱이 Tray 생성에 실패했다면 여기까지 오지도 못한다(실행 자체가 죽는다).
+await app2.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].close(); });
+await sleep(1500);
+
+let alive = null;
+try {
+  alive = await app2.evaluate(({ BrowserWindow }) => ({
+    windows: BrowserWindow.getAllWindows().length,
+    visible: BrowserWindow.getAllWindows().map(w => w.isVisible()),
+  }));
+} catch (e) {
+  // evaluate가 실패했다는 건 앱이 종료됐다는 뜻이다 = 예전 동작
+}
+check('메인 창을 닫아도 앱이 살아있음', alive !== null, alive === null ? '앱이 종료됨' : '');
+check('닫은 창은 파괴되지 않고 숨겨짐', alive?.windows === 1 && alive?.visible[0] === false,
+  `창 ${alive?.windows}개 visible=${JSON.stringify(alive?.visible)}`);
+
+// 숨어 있는 상태에서 위젯만 띄웠다 닫으면, 메인 창이 갑자기 튀어나오면 안 된다.
+// 앱이 이미 죽었다면(= 트레이 상주 실패) 여기서 크래시하지 말고 FAIL로 남긴다.
+if (!alive) {
+  check('숨은 상태에서도 위젯은 열림', false, '앱이 이미 종료되어 확인 불가');
+  check('위젯을 닫아도 숨은 메인 창이 튀어나오지 않음', false, '앱이 이미 종료되어 확인 불가');
+} else {
+  await main2.evaluate(() => require('electron').ipcRenderer.send('open-widget'));
+  await sleep(2500);
+  const widget2 = widgetPage(app2);
+  check('숨은 상태에서도 위젯은 열림', !!widget2);
+  if (widget2) {
+    await widget2.evaluate(() => window.close());
+    await sleep(1500);
+    const still = await app2.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(w => w.isVisible()));
+    check('위젯을 닫아도 숨은 메인 창이 튀어나오지 않음', still.length === 1 && still[0] === false,
+      `visible=${JSON.stringify(still)}`);
+  } else {
+    check('위젯을 닫아도 숨은 메인 창이 튀어나오지 않음', false, '위젯이 열리지 않아 확인 불가');
+  }
+}
+
 await app2.close().catch(() => {});
 const failed = results.filter(r => !r.pass).length;
 console.log(`\n===== ${results.length - failed}/${results.length} 통과 =====`);
