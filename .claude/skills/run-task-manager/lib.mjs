@@ -26,7 +26,7 @@ export function electronBinary() {
   return bin;
 }
 
-const APP_FILES = ['main.js', 'index.html', 'widget.html', 'package.json'];
+const APP_FILES = ['main.js', 'index.html', 'widget.html', 'phone.html', 'quickadd.html', 'package.json'];
 const DATA_LINE_OLD = "const dataFilePath = path.join(app.getPath('documents'), '업무관리_데이터.json');";
 const DATA_LINE_NEW = "const dataFilePath = process.env.TM_DATA_FILE || path.join(app.getPath('documents'), '업무관리_데이터.json');";
 
@@ -91,14 +91,34 @@ export async function launchApp({ real = false } = {}) {
   if (dataFile) env.TM_DATA_FILE = dataFile;
 
   const app = await electron.launch({ executablePath: electronBinary(), args: [appDir], env, timeout: 60_000 });
-  const main = await app.firstWindow();
+
+  // 📌 firstWindow() 를 쓰면 안 된다. 전화 아이콘 창이 먼저 뜨면 그게 잡힌다.
+  // 항상 URL 로 메인 창을 특정한다.
+  const main = await waitForWindow(app, 'index.html');
   // #masterTableContainer는 비활성 탭 안이라 'visible'이 되지 않는다. 기본 활성 탭의 달력을 기다린다.
   await main.waitForSelector('#calendarGrid', { timeout: 20_000 });
   await sleep(1200);
   return { app, main, appDir, dataFile };
 }
 
+/** 특정 창이 뜰 때까지 기다린다. 창이 여러 개라 순서를 믿을 수 없다. */
+export async function waitForWindow(app, urlPart, timeout = 30_000) {
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    const w = app.windows().find(x => x.url().includes(urlPart));
+    if (w) return w;
+    await sleep(200);
+  }
+  throw new Error(urlPart + ' 창을 찾지 못했습니다 (' + app.windows().map(w => w.url()).join(', ') + ')');
+}
+
 export const widgetPage = app => app.windows().find(w => w.url().includes('widget.html'));
+export const phonePage  = app => app.windows().find(w => w.url().includes('phone.html'));
+export const quickAddPage = app => app.windows().find(w => w.url().includes('quickadd.html'));
+
+/** 전화 아이콘·빠른 등록 창을 뺀 '문서 창'만. 창 개수를 셀 때 쓴다. */
+export const docWindows = app => app.windows().filter(w =>
+  !w.url().includes('phone.html') && !w.url().includes('quickadd.html'));
 
 /**
  * CDP 키보드(page.keyboard.type)는 Electron 창의 OS 포커스에 의존해서 입력이 통째로 유실된다.

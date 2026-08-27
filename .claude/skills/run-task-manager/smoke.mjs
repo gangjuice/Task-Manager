@@ -4,7 +4,7 @@
 // 통과하면 exit 0, 하나라도 실패하면 exit 1. 스크린샷은 SHOT_DIR에 남는다.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { launchApp, widgetPage, typeInto, switchTab, seedData, readData, makeTask, mkDate, sleep, SHOT_DIR } from './lib.mjs';
+import { launchApp, widgetPage, phonePage, quickAddPage, docWindows, typeInto, switchTab, seedData, readData, makeTask, mkDate, sleep, SHOT_DIR } from './lib.mjs';
 
 const results = [];
 const check = (name, pass, detail) => { results.push({ name, pass }); console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' :: ' + detail : ''}`); };
@@ -57,7 +57,7 @@ await shot(main2, '03-memo');
 await main2.evaluate(() => document.querySelectorAll('.header-container button')[1].click());
 await sleep(3000);
 const widget = widgetPage(app2);
-check('위젯 창이 열림', !!widget, `창 ${app2.windows().length}개`);
+check('위젯 창이 열림', !!widget, `문서 창 ${docWindows(app2).length}개`);
 
 if (widget) {
   await widget.waitForSelector('#widgetMemo', { timeout: 10_000 });
@@ -81,7 +81,7 @@ if (widget) {
 
   await widget.evaluate(() => returnToMain());
   await sleep(2000);
-  check('위젯 닫으면 메인 창만 남음', app2.windows().length === 1, `창 ${app2.windows().length}개`);
+  check('위젯 닫으면 메인 창만 남음', docWindows(app2).length === 1, `문서 창 ${docWindows(app2).length}개`);
   await shot(main2, '05-back-to-main');
 }
 
@@ -194,19 +194,8 @@ await sleep(900);
 c = readData(dataFile).contacts.find(x => x.id === cid);
 check('구분 이름을 바꾸면 연락처도 따라감', c.tag === '발주처A', `tag=${c.tag}`);
 
-// 보관하면 기본 목록에서 사라진다
 await switchTab(main2, 4);
 await sleep(300);
-await main2.evaluate(id => { contactContextId = id; contactMenuArchive(); }, cid);
-await sleep(900);
-check('보관하면 기본 목록에서 빠짐',
-  await main2.evaluate(() => document.querySelectorAll('#contactTable tbody tr').length) === 0);
-await main2.evaluate(() => { document.getElementById('showArchivedCheckbox').checked = true; toggleArchivedView(); });
-await sleep(300);
-check('보관함 보기로는 다시 보임',
-  await main2.evaluate(() => document.querySelectorAll('#contactTable tbody tr').length) === 1);
-check('보관은 삭제가 아님', readData(dataFile).contacts.length === 1);
-await main2.evaluate(() => { document.getElementById('showArchivedCheckbox').checked = false; toggleArchivedView(); });
 
 // ── 4.6) 빠른 입력 · 검색 팝업 ─────────────────────────────────
 
@@ -273,17 +262,129 @@ await sleep(300);
 check('검색 해제하면 칩이 사라짐',
   await main2.evaluate(() => document.getElementById('searchChip').style.display === 'none'));
 
+// ── 4.7) 전화 아이콘 · 빠른 등록 · 단축키 ──────────────────────
+
+const phone = phonePage(app2);
+check('전화 아이콘이 떠 있음', !!phone, `창 ${app2.windows().length}개`);
+
+const hk = await app2.evaluate(({ app }) => null).then(() => main2.evaluate(() =>
+  require('electron').ipcRenderer.invoke('get-hotkey')));
+check('기본 단축키가 F4 로 등록됨', hk.accel === 'F4', `accel=${hk.accel}`);
+
+// 작게 움직이면 클릭 = 빠른 등록 창이 열려야 한다 (5px 임계값)
+if (phone) {
+  await phone.evaluate(() => {
+    const b = document.getElementById('btn');
+    const mk = (type, sx, sy) => new PointerEvent(type, { pointerId: 1, button: 0, bubbles: true, screenX: sx, screenY: sy });
+    b.dispatchEvent(mk('pointerdown', 500, 500));
+    b.dispatchEvent(mk('pointermove', 502, 501));
+    b.dispatchEvent(mk('pointerup',   502, 501));
+  });
+  await sleep(2500);
+}
+const qa = quickAddPage(app2);
+check('아이콘을 클릭하면 빠른 등록 창이 뜸', !!qa);
+
+if (qa) {
+  await qa.waitForSelector('#qName', { timeout: 10_000 });
+  await sleep(500);
+  await shot(qa, '12-quick-add-window');
+
+  const beforeCount = readData(dataFile).contacts.length;
+
+  // 📌 빠른 등록 창이 저장하는 동안 메인 창에서도 연락처를 하나 더 만든다.
+  // 창이 자기 사본을 통째로 써낸다면 둘 중 하나가 사라진다.
+  await typeInto(main2, '#qa_name', '동시입력테스트', 10);
+  await main2.evaluate(() => quickAddContact());
+  await sleep(700);
+
+  await typeInto(qa, '#qName', '이영수', 10);
+  await typeInto(qa, '#qPhone', '010-9999-8888', 10);
+  await typeInto(qa, '#qMemo', '현장 방문 요청', 10);
+  await qa.evaluate(() => save());
+  await sleep(900);
+
+  const after = readData(dataFile).contacts;
+  check('빠른 등록 창에서 저장됨', after.some(c => c.name === '이영수'));
+  check('메인 창이 만든 연락처도 함께 살아있음', after.some(c => c.name === '동시입력테스트'),
+    `${beforeCount}건 → ${after.length}건`);
+  check('빠른 등록도 번호를 정규화',
+    after.find(c => c.name === '이영수')?.phones?.[0]?.value === '01099998888');
+  check('메모가 기록으로 남음',
+    after.find(c => c.name === '이영수')?.notes?.[0]?.text === '현장 방문 요청');
+
+  // 같은 번호를 다시 치면 경고
+  await qa.evaluate(() => { document.getElementById('qPhone').value = ''; });
+  await typeInto(qa, '#qPhone', '01099998888', 10);
+  await sleep(400);
+  check('빠른 등록 창도 중복 번호를 잡음',
+    await qa.evaluate(() => document.getElementById('dup').style.display === 'block'));
+
+  await qa.evaluate(() => closeSelf());
+  await sleep(800);
+  check('Esc/닫기로 빠른 등록 창이 닫힘', !quickAddPage(app2));
+}
+
+// 크게 끌면 이동 = 위치가 저장되어야 한다
+if (phone) {
+  const before = await app2.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('phone.html')).getPosition());
+  await phone.evaluate(() => {
+    const b = document.getElementById('btn');
+    const mk = (type, sx, sy) => new PointerEvent(type, { pointerId: 1, button: 0, bubbles: true, screenX: sx, screenY: sy });
+    b.dispatchEvent(mk('pointerdown', 500, 500));
+    b.dispatchEvent(mk('pointermove', 460, 540));
+    b.dispatchEvent(mk('pointerup',   460, 540));
+  });
+  await sleep(900);
+  const moved = await app2.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('phone.html')).getPosition());
+  check('끌면 아이콘이 이동함', moved[0] !== before[0] || moved[1] !== before[1],
+    `${before} → ${moved}`);
+  check('이동한 위치가 저장됨(모니터 정보 포함)', (() => {
+    const s = readData(dataFile).settings?.phoneIcon;
+    return s && s.x === moved[0] && s.y === moved[1] && typeof s.displayId === 'number';
+  })(), `settings=${JSON.stringify(readData(dataFile).settings?.phoneIcon)}`);
+  check('끌기는 빠른 등록 창을 열지 않음', !quickAddPage(app2));
+}
+
+// 불러오기 병합: 같은 번호면 기록만 합치고 새 사람은 추가
+const mergeResult = await main2.evaluate(() => {
+  const target = contacts.find(c => c.name === '이영수');
+  pendingImport = {
+    contacts: [
+      { id: 1, name: '이영수(다른PC)', phones: [{ label: '휴대폰', value: '01099998888' }],
+        notes: [{ at: '2026-01-02T09:00:00', text: '다른 PC 에서 적은 기록' }] },
+      { id: 2, name: '신규인물', phones: [{ label: '휴대폰', value: '01077776666' }], notes: [] }
+    ], tags: [], orgs: [], projects: []
+  };
+  runImport('merge');
+  const after = contacts.find(c => c.id === target.id);
+  return {
+    name: after.name,
+    notes: after.notes.length,
+    hasImportedNote: after.notes.some(n => n.text === '다른 PC 에서 적은 기록'),
+    newAdded: contacts.some(c => c.name === '신규인물'),
+  };
+});
+check('병합: 같은 번호는 기록만 합치고 이름은 유지',
+  mergeResult.name === '이영수' && mergeResult.hasImportedNote && mergeResult.notes === 2,
+  JSON.stringify(mergeResult));
+check('병합: 없던 사람은 새로 추가', mergeResult.newAdded);
+
 // ── 5) 트레이 상주 — 메인 창을 닫아도 앱이 죽지 않는가 (2단계의 핵심 보증) ──
 // 앱이 Tray 생성에 실패했다면 여기까지 오지도 못한다(실행 자체가 죽는다).
-await app2.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].close(); });
+await app2.evaluate(({ BrowserWindow }) => {
+  BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('index.html')).close();
+});
 await sleep(1500);
 
 let alive = null;
 try {
-  alive = await app2.evaluate(({ BrowserWindow }) => ({
-    windows: BrowserWindow.getAllWindows().length,
-    visible: BrowserWindow.getAllWindows().map(w => w.isVisible()),
-  }));
+  alive = await app2.evaluate(({ BrowserWindow }) => {
+    const docs = BrowserWindow.getAllWindows().filter(w => w.webContents.getURL().includes('index.html'));
+    return { windows: docs.length, visible: docs.map(w => w.isVisible()) };
+  });
 } catch (e) {
   // evaluate가 실패했다는 건 앱이 종료됐다는 뜻이다 = 예전 동작
 }
@@ -304,7 +405,8 @@ if (!alive) {
   if (widget2) {
     await widget2.evaluate(() => window.close());
     await sleep(1500);
-    const still = await app2.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(w => w.isVisible()));
+    const still = await app2.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()
+      .filter(w => w.webContents.getURL().includes('index.html')).map(w => w.isVisible()));
     check('위젯을 닫아도 숨은 메인 창이 튀어나오지 않음', still.length === 1 && still[0] === false,
       `visible=${JSON.stringify(still)}`);
   } else {

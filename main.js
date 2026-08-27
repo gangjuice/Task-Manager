@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, globalShortcut, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -58,7 +58,10 @@ function createTray() {
     tray.setToolTip('Task Manager');
     tray.setContextMenu(Menu.buildFromTemplate([
         { label: '업무 창 열기', click: showMainWindow },
+        { label: '빠른 등록', click: openQuickAdd },
         { label: '달력 위젯 띄우기', click: openWidget },
+        { type: 'separator' },
+        { label: '전화 아이콘 보이기 / 숨기기', click: () => { phoneWindow ? hidePhoneIcon() : showPhoneIcon(); } },
         { type: 'separator' },
         { label: '완전 종료', click: () => { isQuitting = true; app.quit(); } },
     ]));
@@ -87,6 +90,9 @@ function notifyTrayOnce() {
 app.whenReady().then(() => {
     createWindow();
     createTray();
+    if (!getSettings().phoneIconHidden) createPhoneIcon();
+    applyHotkeyFromSettings();
+    watchDisplays();
 });
 
 // 📌 창이 하나도 없어도 앱을 끝내지 않는다 (기본 동작은 종료).
@@ -199,3 +205,284 @@ ipcMain.on('set-autostart', (event, enable) => {
         path: app.getPath('exe') 
     });
 });
+
+// ══════════════════════════════════════════════════════════════════
+// 전화 아이콘 · 빠른 등록 · 전역 단축키
+// ══════════════════════════════════════════════════════════════════
+
+const ICON_SIZE = 56;
+const DEFAULT_HOTKEY = 'F4';
+
+let phoneWindow = null;
+let quickAddWindow = null;
+let dragOrigin = null;
+
+function getSettings() {
+    const doc = readDoc();
+    return doc.settings || {};
+}
+
+function patchSettings(patch) {
+    const doc = readDoc();
+    doc.settings = Object.assign({}, doc.settings || {}, patch);
+    writeDoc(doc);
+    return doc.settings;
+}
+
+// 📌 모니터가 2대이므로 좌표만으로는 어느 화면인지 알 수 없다.
+// 저장된 좌표가 아직 어느 화면 안에 들어가는지 켤 때마다 확인한다.
+function isPositionUsable(pos) {
+    if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') return false;
+    return screen.getAllDisplays().some(d => {
+        const b = d.workArea;
+        return pos.x >= b.x && pos.y >= b.y &&
+               pos.x + ICON_SIZE <= b.x + b.width &&
+               pos.y + ICON_SIZE <= b.y + b.height;
+    });
+}
+
+function defaultIconPosition() {
+    const d = screen.getPrimaryDisplay();
+    const b = d.workArea;
+    return { x: b.x + b.width - ICON_SIZE - 20, y: b.y + 20, displayId: d.id };
+}
+
+function resolveIconPosition() {
+    const saved = getSettings().phoneIcon;
+    return isPositionUsable(saved) ? saved : defaultIconPosition();
+}
+
+function createPhoneIcon() {
+    if (phoneWindow) { phoneWindow.show(); return; }
+
+    const pos = resolveIconPosition();
+    phoneWindow = new BrowserWindow({
+        width: ICON_SIZE, height: ICON_SIZE, x: pos.x, y: pos.y,
+        frame: false, transparent: true, resizable: false, movable: true,
+        alwaysOnTop: true, skipTaskbar: true, hasShadow: false,
+        webPreferences: { nodeIntegration: true, contextIsolation: false }
+    });
+    phoneWindow.setAlwaysOnTop(true, 'screen-saver');   // 전체화면 위에서도 보이게
+    phoneWindow.loadFile('phone.html');
+    phoneWindow.on('closed', () => { phoneWindow = null; });
+}
+
+function hidePhoneIcon() {
+    if (phoneWindow) { phoneWindow.close(); phoneWindow = null; }
+    patchSettings({ phoneIconHidden: true });
+}
+
+function showPhoneIcon() {
+    patchSettings({ phoneIconHidden: false });
+    createPhoneIcon();
+}
+
+// 모니터를 빼거나 해상도를 바꾸면 아이콘이 화면 밖으로 나갈 수 있다.
+function watchDisplays() {
+    const recheck = () => {
+        if (!phoneWindow) return;
+        const [x, y] = phoneWindow.getPosition();
+        if (isPositionUsable({ x, y })) return;
+        const pos = defaultIconPosition();
+        phoneWindow.setPosition(pos.x, pos.y);
+        patchSettings({ phoneIcon: pos });
+    };
+    screen.on('display-removed', recheck);
+    screen.on('display-added', recheck);
+    screen.on('display-metrics-changed', recheck);
+}
+
+ipcMain.on('phone-drag-start', () => {
+    if (!phoneWindow) return;
+    const [x, y] = phoneWindow.getPosition();
+    dragOrigin = { x, y };
+});
+
+ipcMain.on('phone-drag-move', (event, d) => {
+    if (!phoneWindow || !dragOrigin) return;
+    phoneWindow.setPosition(Math.round(dragOrigin.x + d.dx), Math.round(dragOrigin.y + d.dy));
+});
+
+ipcMain.on('phone-drag-end', () => {
+    if (!phoneWindow) return;
+    const [x, y] = phoneWindow.getPosition();
+    const display = screen.getDisplayNearestPoint({ x: x + ICON_SIZE / 2, y: y + ICON_SIZE / 2 });
+    patchSettings({ phoneIcon: { x, y, displayId: display.id } });
+    dragOrigin = null;
+});
+
+ipcMain.on('phone-context-menu', () => {
+    if (!phoneWindow) return;
+    Menu.buildFromTemplate([
+        { label: '연락처 목록', click: () => openContactsTab() },
+        { label: '업무 창 열기', click: showMainWindow },
+        { label: '달력 위젯 띄우기', click: openWidget },
+        { type: 'separator' },
+        { label: '아이콘 숨기기', click: hidePhoneIcon },
+        { label: '완전 종료', click: () => { isQuitting = true; app.quit(); } },
+    ]).popup({ window: phoneWindow });
+});
+
+function openContactsTab() {
+    showMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('open-contacts-tab');
+    }
+}
+
+// ── 빠른 등록 창 ──────────────────────────────────────────────────
+
+function openQuickAdd() {
+    if (quickAddWindow && !quickAddWindow.isDestroyed()) {
+        quickAddWindow.show();
+        quickAddWindow.focus();
+        quickAddWindow.webContents.send('quick-add-reset');
+        return;
+    }
+
+    const W = 460, H = 190;
+
+    // 📌 아이콘이 있는 모니터에 띄운다. 주 모니터 한가운데 고정이면
+    // 두 번째 화면에서 일하다가 시선을 옮겨야 한다.
+    const anchor = phoneWindow ? phoneWindow.getPosition() : null;
+    const display = anchor
+        ? screen.getDisplayNearestPoint({ x: anchor[0], y: anchor[1] })
+        : screen.getPrimaryDisplay();
+    const b = display.workArea;
+
+    let x = anchor ? anchor[0] + ICON_SIZE + 10 : b.x + b.width - W - 30;
+    let y = anchor ? anchor[1] : b.y + 40;
+    x = Math.min(Math.max(x, b.x + 8), b.x + b.width - W - 8);
+    y = Math.min(Math.max(y, b.y + 8), b.y + b.height - H - 8);
+
+    quickAddWindow = new BrowserWindow({
+        width: W, height: H, x, y,
+        frame: false, transparent: true, resizable: false,
+        alwaysOnTop: true, skipTaskbar: true,
+        webPreferences: { nodeIntegration: true, contextIsolation: false }
+    });
+    quickAddWindow.setAlwaysOnTop(true, 'screen-saver');
+    quickAddWindow.loadFile('quickadd.html');
+    quickAddWindow.on('closed', () => { quickAddWindow = null; });
+}
+
+ipcMain.on('open-quick-add', openQuickAdd);
+
+ipcMain.on('close-quick-add', () => {
+    if (quickAddWindow && !quickAddWindow.isDestroyed()) quickAddWindow.close();
+});
+
+// 📌 빠른 등록 창은 자기 사본에 연락처를 밀어 넣지 않는다.
+// 항상 디스크의 최신 목록에 덧붙이고, 결과를 돌려준다.
+// (창이 들고 있던 낡은 목록으로 통째로 저장하면 다른 창이 방금 추가한 연락처가 사라진다)
+function broadcastContacts(list, exceptId) {
+    BrowserWindow.getAllWindows().forEach(win => {
+        if (win.webContents.id !== exceptId) {
+            win.webContents.send('sync-sections', { contacts: list });
+        }
+    });
+}
+
+function stamp() {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+           'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+ipcMain.handle('add-contact', (event, { name, phone, memo }) => {
+    const doc = readDoc();
+    const list = Array.isArray(doc.contacts) ? doc.contacts : [];
+    const at = stamp();
+    const digits = String(phone || '').replace(/[^0-9]/g, '');
+
+    list.push({
+        id: Date.now(),
+        name: name || '', title: '', org: '', email: '', tag: '',
+        phones: digits ? [{ label: digits.startsWith('01') ? '휴대폰' : '사무실', value: digits }] : [],
+        projects: [],
+        notes: memo ? [{ at: at, text: memo }] : [],
+        createdAt: at.split('T')[0],
+        updatedAt: at,
+        lastNoteAt: memo ? at.split('T')[0] : ''
+    });
+
+    doc.contacts = list;
+    writeDoc(doc);
+    broadcastContacts(list, event.sender.id);
+    return { ok: true, contacts: list };
+});
+
+ipcMain.handle('add-note', (event, { id, text }) => {
+    const doc = readDoc();
+    const list = Array.isArray(doc.contacts) ? doc.contacts : [];
+    const c = list.find(x => x.id === id);
+    if (!c) return { ok: false };
+
+    const at = stamp();
+    c.notes = c.notes || [];
+    c.notes.push({ at: at, text: text });
+    c.lastNoteAt = at.split('T')[0];
+    c.updatedAt = at;
+
+    doc.contacts = list;
+    writeDoc(doc);
+    broadcastContacts(list, event.sender.id);
+    return { ok: true, contacts: list };
+});
+
+// ── 전역 단축키 ───────────────────────────────────────────────────
+
+// 📌 전역 단축키는 윈도우 전체에서 그 키를 가로챈다.
+// 기본값 F4 는 엑셀의 절대참조를 내주는 대신 한 번만 누르면 되는 속도를 얻는 선택이다.
+// 등록에 실패하면 반드시 알린다. 조용히 안 먹는 상태가 제일 나쁘다.
+function applyHotkey(accel) {
+    globalShortcut.unregisterAll();
+    if (!accel) return { ok: true, accel: '' };
+    try {
+        const ok = globalShortcut.register(accel, openQuickAdd);
+        return { ok: !!ok, accel: accel };
+    } catch (e) {
+        return { ok: false, accel: accel, error: e.message };
+    }
+}
+
+function applyHotkeyFromSettings() {
+    const s = getSettings();
+    const accel = s.hotkey === undefined ? DEFAULT_HOTKEY : s.hotkey;
+    const res = applyHotkey(accel);
+    if (!res.ok && accel) {
+        // 다른 프로그램이 이미 쓰고 있는 경우
+        if (tray) {
+            try {
+                tray.displayBalloon({
+                    icon: nativeImage.createFromPath(iconPath),
+                    title: '단축키를 등록하지 못했습니다',
+                    content: '‘' + accel + '’ 은(는) 다른 프로그램이 쓰고 있습니다. 설정에서 다른 키로 바꿔주세요.'
+                });
+            } catch (e) {}
+        }
+    }
+    return res;
+}
+
+ipcMain.handle('get-hotkey', () => {
+    const s = getSettings();
+    return {
+        accel: s.hotkey === undefined ? DEFAULT_HOTKEY : s.hotkey,
+        iconHidden: !!s.phoneIconHidden
+    };
+});
+
+ipcMain.handle('set-hotkey', (event, accel) => {
+    const res = applyHotkey(accel);
+    if (res.ok) patchSettings({ hotkey: accel });
+    else applyHotkeyFromSettings();   // 실패하면 원래 키로 되돌린다
+    return res;
+});
+
+ipcMain.handle('set-icon-visible', (event, visible) => {
+    if (visible) showPhoneIcon(); else hidePhoneIcon();
+    return { ok: true, visible: visible };
+});
+
+app.on('will-quit', () => { globalShortcut.unregisterAll(); });

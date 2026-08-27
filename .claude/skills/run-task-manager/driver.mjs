@@ -41,13 +41,15 @@ const COMMANDS = {
     await COMMANDS.launch('');
   },
 
+  // use main | widget | phone | quickadd
   async use(which) {
     if (!app) return console.log('ERROR: 먼저 launch 하세요');
-    if ((which || '').trim() === 'widget') {
-      const w = widgetPage(app);
-      if (!w) return console.log('위젯 창이 없습니다. click-text 달력 위젯 띄우기');
-      page = w; console.log('대상: 위젯');
-    } else { page = main; console.log('대상: 메인'); }
+    const target = (which || '').trim();
+    const byUrl = { widget: 'widget.html', phone: 'phone.html', quickadd: 'quickadd.html' }[target];
+    if (!byUrl) { page = main; return console.log('대상: 메인'); }
+    const w = app.windows().find(x => x.url().includes(byUrl));
+    if (!w) return console.log(target + ' 창이 없습니다. 열려 있는 창: ' + app.windows().map(x => x.url().split('/').pop()).join(', '));
+    page = w; console.log('대상: ' + target);
   },
 
   async tab(i)     { if (need()) { await switchTab(page, Number(i)); console.log('탭', i); } },

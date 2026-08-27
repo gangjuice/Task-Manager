@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>빠른 등록</title>
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; background: transparent; overflow: hidden; }
+        body { font-family: 'Malgun Gothic', sans-serif; }
+        .panel {
+            height: 100%; box-sizing: border-box;
+            background: #fff; border: 1px solid #cfd8dd; border-radius: 10px;
+            box-shadow: 0 8px 26px rgba(0,0,0,0.28);
+            padding: 14px 16px; display: flex; flex-direction: column;
+        }
+        .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; -webkit-app-region: drag; }
+        .head h1 { margin: 0; font-size: 14px; color: #2c3e50; }
+        .head button { -webkit-app-region: no-drag; background: transparent; border: none; color: #95a5a6; font-size: 15px; cursor: pointer; padding: 0 2px; }
+        .head button:hover { color: #e74c3c; }
+        .row { display: flex; gap: 6px; margin-bottom: 8px; }
+        input {
+            padding: 9px 10px; border: 1px solid #ccc; border-radius: 4px;
+            font-size: 14px; font-family: inherit; box-sizing: border-box;
+        }
+        input:focus { outline: none; border-color: #3498db; }
+        #qName  { width: 108px; }
+        #qPhone { width: 148px; font-family: 'Consolas', monospace; }
+        #qMemo  { flex: 1; min-width: 0; }
+        .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+        .hint { font-size: 11px; color: #95a5a6; }
+        .save { background: #2ecc71; color: #fff; border: none; border-radius: 4px; padding: 8px 18px; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .save:hover { background: #27ae60; }
+        .dup {
+            display: none; background: #fef5e7; border: 1px solid #f39c12; color: #8a5a0f;
+            border-radius: 4px; padding: 7px 10px; font-size: 12px; margin-bottom: 8px;
+        }
+        .dup button { background: #f39c12; color: #fff; border: none; border-radius: 3px; padding: 2px 8px; font-size: 11px; font-weight: bold; cursor: pointer; margin-left: 6px; }
+        .toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(44,62,80,0.95); color: #fff; padding: 7px 16px; border-radius: 16px; font-size: 12px; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <div class="head">
+            <h1>📞 빠른 등록</h1>
+            <button onclick="closeSelf()" title="닫기 (Esc)">✖</button>
+        </div>
+
+        <div id="dup" class="dup"></div>
+
+        <div class="row">
+            <input type="text" id="qName" placeholder="이름">
+            <input type="text" id="qPhone" placeholder="전화번호">
+            <input type="text" id="qMemo" placeholder="메모">
+        </div>
+
+        <div class="actions">
+            <span class="hint">Enter 저장 · Esc 닫기 · 저장해도 창은 열려 있습니다</span>
+            <button class="save" onclick="save()">저장</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        let contacts = [];
+
+        const $ = id => document.getElementById(id);
+        const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        const normalizePhone = v => String(v == null ? '' : v).replace(/[^0-9]/g, '');
+
+        function formatPhone(v) {
+            const d = normalizePhone(v);
+            if (!d) return '';
+            if (d.startsWith('02')) {
+                if (d.length === 9)  return d.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3');
+                if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3');
+            }
+            if (d.length === 8 && /^1[5-9]/.test(d)) return d.replace(/(\d{4})(\d{4})/, '$1-$2');
+            if (d.length === 10) return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+            if (d.length === 11) return d.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+            return d;
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const el = $('toast');
+            el.innerText = msg;
+            el.style.display = 'block';
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { el.style.display = 'none'; }, 1600);
+        }
+
+        async function loadContacts() {
+            const doc = await ipcRenderer.invoke('load-data');
+            contacts = (doc && Array.isArray(doc.contacts)) ? doc.contacts : [];
+        }
+
+        ipcRenderer.on('sync-sections', (event, patch) => {
+            if (patch && Array.isArray(patch.contacts)) contacts = patch.contacts;
+        });
+
+        // 창이 다시 열릴 때마다 비우고 이름부터
+        ipcRenderer.on('quick-add-reset', () => {
+            clearFields();
+            loadContacts();
+        });
+
+        function clearFields() {
+            $('qName').value = '';
+            $('qPhone').value = '';
+            $('qMemo').value = '';
+            $('dup').style.display = 'none';
+            $('qName').focus();
+        }
+
+        function closeSelf() { ipcRenderer.send('close-quick-add'); }
+
+        // 📌 번호를 치는 동안 이미 있는 사람인지 알려준다.
+        function checkDuplicate() {
+            const dup = $('dup');
+            const digits = normalizePhone($('qPhone').value);
+            if (digits.length < 8) { dup.style.display = 'none'; return null; }
+
+            const hit = contacts.find(c => (c.phones || []).some(p => normalizePhone(p.value) === digits));
+            if (!hit) { dup.style.display = 'none'; return null; }
+
+            dup.style.display = 'block';
+            dup.innerHTML = '⚠️ 이미 있음 — <b>' + (esc(hit.name) || '이름 없음') + '</b>' +
+                (hit.org ? ' (' + esc(hit.org) + ')' : '') +
+                '<button type="button" onclick="addToExisting()">이 사람에게 기록 추가</button>';
+            return hit;
+        }
+
+        async function addToExisting() {
+            const hit = contacts.find(c => (c.phones || []).some(p =>
+                normalizePhone(p.value) === normalizePhone($('qPhone').value)));
+            if (!hit) return;
+
+            const memo = $('qMemo').value.trim();
+            if (!memo) { showToast('메모를 적어주세요'); $('qMemo').focus(); return; }
+
+            const res = await ipcRenderer.invoke('add-note', { id: hit.id, text: memo });
+            if (res && res.ok) {
+                contacts = res.contacts;
+                showToast((hit.name || '연락처') + '에 기록 추가됨');
+                clearFields();
+            }
+        }
+
+        async function save() {
+            const name = $('qName').value.trim();
+            const digits = normalizePhone($('qPhone').value);
+            const memo = $('qMemo').value.trim();
+
+            // 📌 필수값을 두지 않는다. 통화 중엔 이름만 듣거나 번호만 받는 경우가 있다.
+            if (!name && !digits && !memo) { showToast('한 칸이라도 채워주세요'); return; }
+
+            const res = await ipcRenderer.invoke('add-contact', { name, phone: digits, memo });
+            if (res && res.ok) {
+                contacts = res.contacts;
+                showToast((name || formatPhone(digits) || '연락처') + ' 등록됨');
+                clearFields();   // 창은 닫지 않는다. 한 통화에 두 명을 받아적는 경우가 있다.
+            }
+        }
+
+        $('qPhone').addEventListener('input', checkDuplicate);
+
+        ['qName', 'qPhone', 'qMemo'].forEach(id => {
+            $(id).addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); save(); }
+            });
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeSelf();
+        });
+
+        loadContacts().then(() => $('qName').focus());
+    </script>
+</body>
+</html>

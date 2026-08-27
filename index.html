@@ -175,7 +175,6 @@
     <div id="contactContextMenu" class="context-menu">
         <ul>
             <li class="edit-btn" onclick="contactMenuEdit()">✏️ 수정하기</li>
-            <li onclick="contactMenuArchive()"><span id="contactArchiveLabel">📥 보관하기</span></li>
             <li class="delete-btn" onclick="contactMenuDelete()">🗑️ 삭제하기</li>
         </ul>
     </div>
@@ -283,6 +282,25 @@
 
     <div id="toast" class="toast"></div>
 
+    <div id="importContactsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 440px;">
+            <div class="modal-header">
+                <h2>📥 연락처 불러오기</h2>
+                <button class="btn-close" onclick="closeImportModal()">✖</button>
+            </div>
+            <p id="ci_message" style="font-size: 14px; line-height: 1.6; margin: 0 0 18px;"></p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" style="background:#2ecc71;" onclick="runImport('merge')">
+                    합치기 <span style="font-weight:normal; font-size:12px;">— 같은 번호는 기록만 합치고, 나머지는 그대로 둡니다</span>
+                </button>
+                <button type="button" style="background:#e74c3c;" onclick="runImport('replace')">
+                    통째로 바꾸기 <span style="font-weight:normal; font-size:12px;">— 지금 연락처를 모두 지웁니다</span>
+                </button>
+                <button type="button" style="background:#7f8c8d;" onclick="closeImportModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
     <div id="listDeleteModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 420px;">
             <div class="modal-header">
@@ -389,7 +407,7 @@
     </div>
 
     <div id="contacts" class="tab-content">
-        <h2>📇 업무용 연락처 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·보관·삭제 / 열 제목 우클릭: 필터</span></h2>
+        <h2>📇 업무용 연락처 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·삭제 / 열 제목 우클릭: 필터</span></h2>
 
         <div class="contact-toolbar">
             <div class="quick-add">
@@ -403,9 +421,6 @@
                 <button type="button" class="btn-quick-add" onclick="quickAddContact()">빠른 등록</button>
             </div>
             <span class="contact-count" id="contactCount">0명</span>
-            <label class="toggle-switch" style="font-size: 13px;">
-                <input type="checkbox" id="showArchivedCheckbox" onchange="toggleArchivedView()"> 보관함 보기
-            </label>
             <button type="button" class="btn-new-task" style="background-color: #3498db;" onclick="openSearchPopup()">🔍 검색</button>
             <button type="button" class="btn-new-task" onclick="openContactForm(null)">➕ 새 연락처</button>
         </div>
@@ -445,6 +460,47 @@
             <ul class="setting-list" id="categoryListContainer"></ul>
         </div>
         
+        <div class="setting-section">
+            <h3>📞 전화 아이콘 · 빠른 등록 단축키</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
+                전화 아이콘은 항상 화면 위에 떠 있습니다. <b>클릭하면 빠른 등록</b>, <b>끌면 위치 이동</b>, <b>우클릭하면 메뉴</b>가 뜹니다.
+            </p>
+
+            <label class="toggle-switch" style="margin-bottom: 18px;">
+                <input type="checkbox" id="phoneIconCheckbox" onchange="togglePhoneIcon()"> 전화 아이콘 띄우기
+            </label>
+
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 10px;">
+                단축키는 <b>윈도우 전체에서 그 키를 가져옵니다.</b> 기본값 <code>F4</code>는 엑셀의 절대참조($ 고정)를
+                내주는 대신, 한 번만 눌러서 열 수 있는 속도를 얻는 선택입니다.
+                엑셀 작업이 많은 날에는 <code>ScrollLock</code>으로 바꾸면 아무것도 뺏기지 않으면서 여전히 한 번만 누르면 됩니다.
+            </p>
+
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <input type="text" id="hotkeyInput" placeholder="F4" style="width: 160px; font-family: 'Consolas', monospace;">
+                <button type="button" style="background-color: #2ecc71;" onclick="applyHotkey()">적용</button>
+                <button type="button" style="background-color: #7f8c8d;" onclick="disableHotkey()">단축키 끄기</button>
+                <span style="font-size: 12px; color: #95a5a6;">예: F4 · ScrollLock · Ctrl+Alt+1</span>
+            </div>
+            <div id="hotkeyStatus" style="font-size: 13px; margin-top: 10px;"></div>
+        </div>
+
+        <div class="setting-section">
+            <h3>📇 연락처 내보내기 / 불러오기</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
+                연락처만 따로 옮길 때 씁니다. 불러올 때는 <b>기존 연락처에 합칠지, 통째로 바꿀지</b> 고를 수 있습니다.<br>
+                ※ 내보낸 파일에는 연락처와 기록이 그대로 들어 있습니다. 개인정보이므로 파일 보관에 주의하세요.
+            </p>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" onclick="exportContacts()" style="background-color: #f39c12;">📤 연락처만 내보내기</button>
+                <span style="color: #ccc;">|</span>
+                <input type="file" id="importContactsInput" accept=".json" style="display: none;" onchange="importContacts(event)">
+                <button type="button" onclick="document.getElementById('importContactsInput').click()" style="background-color: #9b59b6;">📥 연락처 불러오기</button>
+            </div>
+        </div>
+
         <div class="setting-section">
             <h3>📇 연락처 목록 관리</h3>
             <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
@@ -574,6 +630,7 @@
             renderCalendar();
             renderContacts();
             renderSettingLists();
+            loadHotkeySettings();
         }
 
         // 바뀐 섹션만 저장한다. 내가 안 건드린 섹션은 파일의 값이 그대로 유지된다.
@@ -1197,7 +1254,6 @@
         let projects = [];
 
         let contactSearchText = '';
-        let showArchived = false;
         let contactContextId = null;
         let editingContactId = null;   // null이면 신규 등록
         let detailContactId = null;
@@ -1285,11 +1341,6 @@
             updateSearchHint();
         }
 
-        function toggleArchivedView() {
-            showArchived = document.getElementById('showArchivedCheckbox').checked;
-            renderContacts();
-        }
-
         function matchesSearch(c, q, qDigits) {
             if (!q) return true;
             const hay = [c.name, c.title, c.org, c.tag, c.email, (c.projects || []).join(' ')]
@@ -1306,8 +1357,7 @@
             const q = contactSearchText.trim().toLowerCase();
             const qDigits = normalizePhone(contactSearchText);
 
-            let list = contacts.filter(c => showArchived ? c.archived : !c.archived);
-            list = list.filter(c => matchesSearch(c, q, qDigits));
+            const list = contacts.filter(c => matchesSearch(c, q, qDigits));
 
             // 마지막 기록이 최신인 사람부터. 기록이 없으면 등록일로 대신한다.
             list.sort((a, b) => String(b.lastNoteAt || b.createdAt || '')
@@ -1361,8 +1411,6 @@
             e.preventDefault();
             e.stopPropagation();
             contactContextId = id;
-            const c = contacts.find(x => x.id === id);
-            document.getElementById('contactArchiveLabel').innerText = (c && c.archived) ? '📤 보관 해제' : '📥 보관하기';
             rowMenu.style.display = 'none';
             headerMenu.style.display = 'none';
             const menu = document.getElementById('contactContextMenu');
@@ -1371,21 +1419,13 @@
             menu.style.top = e.pageY + 'px';
         }
 
-        function contactMenuEdit()    { if (contactContextId) openContactForm(contactContextId); }
-
-        function contactMenuArchive() {
-            const c = contacts.find(x => x.id === contactContextId);
-            if (!c) return;
-            c.archived = !c.archived;
-            c.updatedAt = nowStamp();
-            saveContacts();
-        }
+        function contactMenuEdit() { if (contactContextId) openContactForm(contactContextId); }
 
         function contactMenuDelete() {
             const c = contacts.find(x => x.id === contactContextId);
             if (!c) return;
             const label = c.name || '이름 없는 연락처';
-            if (!confirm('\'' + label + '\'을(를) 영구 삭제할까요?\n기록 ' + ((c.notes || []).length) + '건도 함께 사라지며 되돌릴 수 없습니다.\n\n지우는 대신 “보관”을 쓰면 나중에 다시 찾을 수 있습니다.')) return;
+            if (!confirm('\'' + label + '\'을(를) 영구 삭제할까요?\n기록 ' + ((c.notes || []).length) + '건도 함께 사라지며 되돌릴 수 없습니다.')) return;
             contacts = contacts.filter(x => x.id !== contactContextId);
             saveContacts();
         }
@@ -1545,8 +1585,7 @@
                     notes: firstNote ? [{ at: stamp, text: firstNote }] : [],
                     createdAt: stamp.split('T')[0],
                     updatedAt: stamp,
-                    lastNoteAt: firstNote ? stamp.split('T')[0] : '',
-                    archived: false
+                    lastNoteAt: firstNote ? stamp.split('T')[0] : ''
                 });
             }
 
@@ -1576,8 +1615,7 @@
             if (!c) return;
 
             document.getElementById('cd_title').innerHTML =
-                (esc(c.name) || '(이름 없음)') + (c.title ? ' <span style="font-weight:normal; color:#7f8c8d;">' + esc(c.title) + '</span>' : '') +
-                (c.archived ? ' <span class="tag-badge" style="background:#95a5a6;">보관됨</span>' : '');
+                (esc(c.name) || '(이름 없음)') + (c.title ? ' <span style="font-weight:normal; color:#7f8c8d;">' + esc(c.title) + '</span>' : '');
 
             const rows = [];
             if (c.org)  rows.push(['소속', esc(c.org)]);
@@ -1882,8 +1920,7 @@
                 notes: memo ? [{ at: stamp, text: memo }] : [],
                 createdAt: stamp.split('T')[0],
                 updatedAt: stamp,
-                lastNoteAt: memo ? stamp.split('T')[0] : '',
-                archived: false
+                lastNoteAt: memo ? stamp.split('T')[0] : ''
             });
 
             saveContacts();
@@ -1989,6 +2026,160 @@
                 }
             }
         });
+
+
+        // ── 전화 아이콘 · 단축키 설정 ─────────────────────────────────
+
+        async function loadHotkeySettings() {
+            const s = await ipcRenderer.invoke('get-hotkey');
+            document.getElementById('hotkeyInput').value = s.accel || '';
+            document.getElementById('phoneIconCheckbox').checked = !s.iconHidden;
+            showHotkeyStatus(s.accel ? '현재 단축키: ' + s.accel : '단축키가 꺼져 있습니다', s.accel ? 'ok' : 'off');
+        }
+
+        function showHotkeyStatus(msg, kind) {
+            const el = document.getElementById('hotkeyStatus');
+            const color = kind === 'fail' ? '#e74c3c' : (kind === 'ok' ? '#27ae60' : '#7f8c8d');
+            el.style.color = color;
+            el.innerText = msg;
+        }
+
+        async function applyHotkey() {
+            const accel = document.getElementById('hotkeyInput').value.trim();
+            if (!accel) { disableHotkey(); return; }
+
+            const res = await ipcRenderer.invoke('set-hotkey', accel);
+            // 📌 등록 실패를 조용히 넘기지 않는다. 단축키가 안 먹는데 이유를 모르는 게 제일 나쁘다.
+            if (res.ok) {
+                showHotkeyStatus('✔ ' + accel + ' 로 등록됐습니다', 'ok');
+                showToast('단축키 ' + accel + ' 적용됨');
+            } else {
+                showHotkeyStatus('✖ ' + accel + ' 은(는) 등록할 수 없습니다. 윈도우가 예약했거나 다른 프로그램이 쓰고 있습니다. 이전 단축키로 되돌렸습니다.', 'fail');
+                loadHotkeySettings();
+            }
+        }
+
+        async function disableHotkey() {
+            await ipcRenderer.invoke('set-hotkey', '');
+            document.getElementById('hotkeyInput').value = '';
+            showHotkeyStatus('단축키를 껐습니다. 전화 아이콘 클릭으로는 계속 열 수 있습니다.', 'off');
+        }
+
+        async function togglePhoneIcon() {
+            const visible = document.getElementById('phoneIconCheckbox').checked;
+            await ipcRenderer.invoke('set-icon-visible', visible);
+            showToast(visible ? '전화 아이콘을 띄웠습니다' : '전화 아이콘을 숨겼습니다');
+        }
+
+        // 전화 아이콘 우클릭 → 연락처 목록
+        ipcRenderer.on('open-contacts-tab', () => {
+            const btns = document.querySelectorAll('.tab-btn');
+            if (btns[4]) btns[4].click();
+        });
+
+        // ── 연락처 내보내기 / 불러오기 ────────────────────────────────
+
+        function exportContacts() {
+            if (!contacts.length && !confirm('연락처가 없습니다. 그래도 빈 파일을 내보낼까요?')) return;
+
+            const data = {
+                exportType: 'contacts',
+                exportDate: getTodayString(),
+                contacts: contacts,
+                tags: tags,
+                orgs: orgs,
+                projects: projects
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '연락처_' + getTodayString() + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('연락처 ' + contacts.length + '건 내보냄');
+        }
+
+        let pendingImport = null;
+
+        function importContacts(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data.contacts)) {
+                        alert('연락처가 들어 있는 파일이 아닙니다.');
+                        return;
+                    }
+                    pendingImport = data;
+                    document.getElementById('ci_message').innerHTML =
+                        '불러올 연락처 <b>' + data.contacts.length + '건</b>, 지금 가지고 있는 연락처 <b>' + contacts.length + '건</b>.<br>어떻게 할까요?';
+                    document.getElementById('importContactsModal').style.display = 'flex';
+                } catch (err) {
+                    alert('파일을 읽는 중 오류가 발생했습니다.');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function closeImportModal() {
+            document.getElementById('importContactsModal').style.display = 'none';
+            pendingImport = null;
+        }
+
+        function phoneKeyOf(c) {
+            const p = (c.phones || []).map(x => normalizePhone(x.value)).filter(Boolean).sort();
+            return p.length ? p[0] : '';
+        }
+
+        // 📌 기본은 병합이다. 덮어쓰기를 기본으로 두면 다른 PC 파일을 여는 순간
+        // 이쪽 연락처가 통째로 사라진다.
+        function runImport(mode) {
+            if (!pendingImport) return;
+            const incoming = pendingImport.contacts;
+
+            if (mode === 'replace') {
+                if (!confirm('지금 있는 연락처 ' + contacts.length + '건을 모두 지우고 ' + incoming.length + '건으로 바꿉니다. 계속할까요?')) return;
+                contacts = incoming;
+            } else {
+                let added = 0, mergedCount = 0;
+                incoming.forEach(inc => {
+                    const key = phoneKeyOf(inc);
+                    const hit = key
+                        ? contacts.find(c => phoneKeyOf(c) === key)
+                        : contacts.find(c => c.name && c.name === inc.name && (c.org || '') === (inc.org || ''));
+
+                    if (!hit) { contacts.push(inc); added++; return; }
+
+                    // 같은 사람이면 기록만 합친다. 나머지 항목은 이쪽 값을 유지한다.
+                    const seen = new Set((hit.notes || []).map(n => n.at + '|' + n.text));
+                    (inc.notes || []).forEach(n => {
+                        if (!seen.has(n.at + '|' + n.text)) { (hit.notes = hit.notes || []).push(n); }
+                    });
+                    const latest = (hit.notes || []).map(n => String(n.at).split('T')[0]).sort().pop();
+                    if (latest) hit.lastNoteAt = latest;
+                    mergedCount++;
+                });
+                showToast('새로 ' + added + '건 추가, ' + mergedCount + '건 기록 병합');
+            }
+
+            (pendingImport.tags || []).forEach(t => { if (!tags.some(x => x.name === t.name)) tags.push(t); });
+            (pendingImport.orgs || []).forEach(o => { if (!orgs.includes(o)) orgs.push(o); });
+            (pendingImport.projects || []).forEach(p => { if (!projects.includes(p)) projects.push(p); });
+
+            saveSections({ contacts: contacts, tags: tags, orgs: orgs, projects: projects });
+            renderContacts();
+            renderSettingLists();
+            closeImportModal();
+            if (mode === 'replace') showToast('연락처 ' + contacts.length + '건으로 교체됨');
+        }
 
         initApp();
     </script>
