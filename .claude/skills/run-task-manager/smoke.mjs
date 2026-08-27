@@ -273,7 +273,7 @@ const qa = quickAddPage(app2);
 check('빠른 등록 창이 열림', !!qa);
 
 if (qa) {
-  await qa.waitForSelector('#qName', { timeout: 10_000 });
+  await qa.waitForSelector('#tContent', { timeout: 10_000 });   // 업무 탭이 기본
   await sleep(500);
   await shot(qa, '12-quick-add-window');
 
@@ -285,6 +285,11 @@ if (qa) {
   await main2.evaluate(() => quickAddContact());
   await sleep(700);
 
+  check('빠른 등록 창은 업무 탭이 기본',
+    await qa.evaluate(() => document.getElementById('paneTask').classList.contains('active')));
+
+  await qa.evaluate(() => switchMode('contact'));
+  await sleep(200);
   await typeInto(qa, '#qName', '이영수', 10);
   await typeInto(qa, '#qPhone', '010-9999-8888', 10);
   await typeInto(qa, '#qMemo', '현장 방문 요청', 10);

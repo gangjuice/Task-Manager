@@ -53,13 +53,13 @@
     <div class="panel">
         <div class="head">
             <div class="tabs">
-                <button class="tab active" id="tabContact" onclick="switchMode('contact')">📇 연락처</button>
-                <button class="tab" id="tabTask" onclick="switchMode('task')">✅ 업무</button>
+                <button class="tab active" id="tabTask" onclick="switchMode('task')">✅ 업무</button>
+                <button class="tab" id="tabContact" onclick="switchMode('contact')">📇 연락처</button>
             </div>
             <button class="close" onclick="closeSelf()" title="닫기 (Esc)">✖</button>
         </div>
 
-        <div class="pane active" id="paneContact">
+        <div class="pane" id="paneContact">
             <div id="dup" class="dup"></div>
             <div class="row">
                 <input type="text" id="qName" placeholder="이름">
@@ -68,7 +68,7 @@
             </div>
         </div>
 
-        <div class="pane" id="paneTask">
+        <div class="pane active" id="paneTask">
             <div class="row">
                 <input type="text" id="tContent" placeholder="업무 내용">
                 <input type="date" id="tDue">
@@ -87,7 +87,7 @@
         const { ipcRenderer } = require('electron');
 
         let contacts = [];
-        let mode = 'contact';
+        let mode = 'task';   // 📌 업무 등록이 훨씬 잦아서 이쪽이 기본
 
         const $ = id => document.getElementById(id);
         const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
@@ -141,6 +141,7 @@
         });
 
         ipcRenderer.on('quick-add-reset', () => {
+            switchMode('task');
             clearFields();
             loadContacts();
         });
@@ -234,7 +235,8 @@
         });
 
         $('tDue').value = todayStr();
-        loadContacts().then(() => $('qName').focus());
+        switchMode('task');
+        loadContacts();
     </script>
 </body>
 </html>
