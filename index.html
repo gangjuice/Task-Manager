@@ -95,6 +95,21 @@
         .note-scroll { max-height: 300px; overflow-y: auto; padding-right: 4px; }
         .color-dot { width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; vertical-align: middle; margin-right: 8px; background: none; }
         .use-count { font-size: 11px; color: #7f8c8d; background: #ecf0f1; padding: 1px 7px; border-radius: 8px; margin-left: 6px; }
+        /* ── 빠른 입력 · 검색 ── */
+        .quick-add { display: flex; gap: 6px; flex: 1; min-width: 320px; align-items: center; }
+        .quick-add input { padding: 9px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit; }
+        #qa_name  { width: 110px; }
+        #qa_phone { width: 140px; font-family: 'Consolas', monospace; }
+        #qa_memo  { flex: 1; min-width: 140px; }
+        .btn-quick-add { background-color: #2ecc71; padding: 9px 16px; font-size: 13px; white-space: nowrap; }
+        .btn-quick-add:hover { background-color: #27ae60; }
+        .quick-add-hint { font-size: 12px; color: #95a5a6; margin: 0 0 10px; }
+        .search-chip { display: inline-flex; align-items: center; gap: 8px; background: #eaf4fb; border: 1px solid #3498db; color: #21618c; border-radius: 14px; padding: 4px 6px 4px 14px; font-size: 13px; font-weight: bold; margin-bottom: 12px; }
+        .search-chip button { background: #3498db; color: #fff; border: none; border-radius: 10px; padding: 2px 9px; font-size: 11px; cursor: pointer; }
+        .search-chip button:hover { background: #2980b9; }
+        #contactSearch { width: 100%; padding: 12px 14px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+        .search-hint { font-size: 13px; color: #7f8c8d; margin: 10px 0 0; }
+        .toast { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); background: rgba(44,62,80,0.95); color: #fff; padding: 11px 22px; border-radius: 22px; font-size: 14px; font-weight: bold; z-index: 3000; display: none; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
     </style>
 </head>
 <body>
@@ -215,7 +230,7 @@
                 </div>
 
                 <div class="form-group full-width" id="cf_firstNoteRow">
-                    <label>첫 기록 (지금 통화 내용)</label>
+                    <label>메모</label>
                     <input type="text" id="cf_firstNote" placeholder="ex) 준공서류 8/30까지 요청">
                 </div>
 
@@ -252,6 +267,21 @@
             <div class="note-scroll" id="cd_notes"></div>
         </div>
     </div>
+
+    <div id="searchModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 540px;">
+            <div class="modal-header">
+                <h2>🔍 연락처 검색</h2>
+                <button class="btn-close" onclick="closeSearchPopup()">✖</button>
+            </div>
+            <input type="text" id="contactSearch" placeholder="이름 · 소속 · 번호 · 프로젝트 · 기록 내용"
+                   oninput="setContactSearch(this.value)"
+                   onkeydown="if(event.key==='Enter'||event.key==='Escape') closeSearchPopup()">
+            <p class="search-hint" id="searchHint"></p>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
 
     <div id="listDeleteModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 420px;">
@@ -362,14 +392,27 @@
         <h2>📇 업무용 연락처 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·보관·삭제 / 열 제목 우클릭: 필터</span></h2>
 
         <div class="contact-toolbar">
-            <input type="text" id="contactSearch" placeholder="이름 · 소속 · 번호 · 프로젝트 · 기록 내용으로 찾기 (하이픈 없이 숫자만 쳐도 됩니다)"
-                   oninput="setContactSearch(this.value)">
+            <div class="quick-add">
+                <input type="text" id="qa_name" placeholder="이름"
+                       onkeydown="if(event.key==='Enter') quickAddContact()">
+                <input type="text" id="qa_phone" placeholder="전화번호"
+                       oninput="checkQuickDuplicate()"
+                       onkeydown="if(event.key==='Enter') quickAddContact()">
+                <input type="text" id="qa_memo" placeholder="메모"
+                       onkeydown="if(event.key==='Enter') quickAddContact()">
+                <button type="button" class="btn-quick-add" onclick="quickAddContact()">빠른 등록</button>
+            </div>
             <span class="contact-count" id="contactCount">0명</span>
             <label class="toggle-switch" style="font-size: 13px;">
                 <input type="checkbox" id="showArchivedCheckbox" onchange="toggleArchivedView()"> 보관함 보기
             </label>
+            <button type="button" class="btn-new-task" style="background-color: #3498db;" onclick="openSearchPopup()">🔍 검색</button>
             <button type="button" class="btn-new-task" onclick="openContactForm(null)">➕ 새 연락처</button>
         </div>
+
+        <div id="qa_dupWarn" class="dup-warn"></div>
+        <p class="quick-add-hint">세 칸 중 아무거나 채우고 Enter — 통화하면서 바로 남기세요. 자세한 정보는 나중에 “새 연락처”나 수정으로 채우면 됩니다.</p>
+        <div id="searchChip" class="search-chip" style="display: none;"></div>
 
         <div class="table-responsive" id="contactTableContainer"></div>
     </div>
@@ -1238,6 +1281,8 @@
         function setContactSearch(v) {
             contactSearchText = v;
             renderContacts();
+            renderSearchChip();
+            updateSearchHint();
         }
 
         function toggleArchivedView() {
@@ -1367,7 +1412,7 @@
                 : [{ label: '휴대폰', value: '' }];
             draftProjects = c ? (c.projects || []).slice() : [];
 
-            document.getElementById('cf_firstNoteRow').style.display = c ? 'none' : 'block';
+            document.getElementById('cf_firstNoteRow').style.display = c ? 'none' : 'flex';
             document.getElementById('cf_firstNote').value = '';
 
             renderDraftPhones();
@@ -1802,6 +1847,148 @@
             renderSettingLists();
             renderContacts();
         }
+
+
+        // ── 빠른 입력 (이름 · 전화번호 · 메모) ────────────────────────
+
+        function qa(id) { return document.getElementById(id); }
+
+        function clearQuickAdd() {
+            qa('qa_name').value = '';
+            qa('qa_phone').value = '';
+            qa('qa_memo').value = '';
+            qa('qa_dupWarn').style.display = 'none';
+            qa('qa_name').focus();
+        }
+
+        function quickAddContact() {
+            const name = qa('qa_name').value.trim();
+            const digits = normalizePhone(qa('qa_phone').value);
+            const memo = qa('qa_memo').value.trim();
+
+            // 📌 필수값을 두지 않는다. 통화 중엔 이름만 듣거나 번호만 받는 경우가 있다.
+            if (!name && !digits && !memo) {
+                showToast('이름 · 전화번호 · 메모 중 하나는 채워주세요');
+                return;
+            }
+
+            const stamp = nowStamp();
+            contacts.push({
+                id: Date.now(),
+                name: name, title: '', org: '', email: '', tag: '',
+                // 01x 로 시작하면 휴대폰, 아니면 사무실. 02-555-1234 를 휴대폰이라 적어두면 어색하다.
+                phones: digits ? [{ label: digits.startsWith('01') ? '휴대폰' : '사무실', value: digits }] : [],
+                projects: [],
+                notes: memo ? [{ at: stamp, text: memo }] : [],
+                createdAt: stamp.split('T')[0],
+                updatedAt: stamp,
+                lastNoteAt: memo ? stamp.split('T')[0] : '',
+                archived: false
+            });
+
+            saveContacts();
+            showToast((name || formatPhone(digits) || '연락처') + ' 등록됨');
+            clearQuickAdd();   // 📌 창을 닫지 않는다. 한 통화에 두 명을 받아적는 경우가 있다.
+        }
+
+        // 📌 번호를 치는 동안 이미 있는 사람인지 알려준다.
+        function checkQuickDuplicate() {
+            const warn = qa('qa_dupWarn');
+            const digits = normalizePhone(qa('qa_phone').value);
+            if (digits.length < 8) { warn.style.display = 'none'; return; }
+
+            const hit = contacts.find(c => (c.phones || []).some(p => normalizePhone(p.value) === digits));
+            if (!hit) { warn.style.display = 'none'; return; }
+
+            warn.style.display = 'block';
+            warn.innerHTML = '⚠️ 이미 있는 번호입니다 — <b>' + (esc(hit.name) || '이름 없음') + '</b>' +
+                (hit.org ? ' (' + esc(hit.org) + ')' : '') +
+                ' <button type="button" class="btn-inline" onclick="quickAddToExisting(' + hit.id + ')">이 사람에게 기록 추가</button>';
+        }
+
+        function quickAddToExisting(id) {
+            const c = contacts.find(x => x.id === id);
+            if (!c) return;
+
+            const memo = qa('qa_memo').value.trim();
+            if (!memo) { clearQuickAdd(); openContactDetail(id); return; }
+
+            const stamp = nowStamp();
+            c.notes = c.notes || [];
+            c.notes.push({ at: stamp, text: memo });
+            c.lastNoteAt = stamp.split('T')[0];
+            c.updatedAt = stamp;
+
+            saveContacts();
+            showToast((c.name || '연락처') + '에 기록 추가됨');
+            clearQuickAdd();
+        }
+
+        // ── 검색 팝업 ─────────────────────────────────────────────────
+
+        function openSearchPopup() {
+            const modal = qa('searchModal');
+            modal.style.display = 'flex';
+            const input = qa('contactSearch');
+            input.value = contactSearchText;
+            input.focus();
+            input.select();
+            updateSearchHint();
+        }
+
+        function closeSearchPopup() {
+            qa('searchModal').style.display = 'none';
+        }
+
+        function clearContactSearch() {
+            qa('contactSearch').value = '';
+            setContactSearch('');
+        }
+
+        function updateSearchHint() {
+            const hint = qa('searchHint');
+            if (!hint) return;
+            const shown = document.querySelectorAll('#contactTable tbody tr').length;
+            hint.innerText = contactSearchText.trim()
+                ? shown + '명 찾음'
+                : '이름 · 소속 · 번호 · 프로젝트 · 기록 내용에서 찾습니다. 번호는 하이픈 없이 숫자만 쳐도 됩니다.';
+        }
+
+        // 📌 검색창을 닫아도 필터는 남는다. 왜 목록이 줄었는지 보이도록 표시해 둔다.
+        function renderSearchChip() {
+            const chip = qa('searchChip');
+            if (!chip) return;
+            const q = contactSearchText.trim();
+            if (!q) { chip.style.display = 'none'; return; }
+            chip.style.display = 'inline-flex';
+            chip.innerHTML = '🔍 “' + esc(q) + '” 로 검색 중' +
+                '<button type="button" onclick="clearContactSearch()">✖ 해제</button>';
+        }
+
+        // ── 토스트 (alert 대신) ───────────────────────────────────────
+
+        let toastTimer = null;
+
+        // 📌 통화 중에 확인 클릭을 강요하면 안 되므로 alert 를 쓰지 않는다.
+        function showToast(msg) {
+            const el = qa('toast');
+            if (!el) return;
+            el.innerText = msg;
+            el.style.display = 'block';
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { el.style.display = 'none'; }, 1800);
+        }
+
+        // 연락처 탭에서 Ctrl+F 로 검색창 열기
+        window.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                const tab = document.getElementById('contacts');
+                if (tab && tab.classList.contains('active')) {
+                    e.preventDefault();
+                    openSearchPopup();
+                }
+            }
+        });
 
         initApp();
     </script>

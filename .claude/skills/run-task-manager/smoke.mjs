@@ -208,6 +208,71 @@ check('보관함 보기로는 다시 보임',
 check('보관은 삭제가 아님', readData(dataFile).contacts.length === 1);
 await main2.evaluate(() => { document.getElementById('showArchivedCheckbox').checked = false; toggleArchivedView(); });
 
+// ── 4.6) 빠른 입력 · 검색 팝업 ─────────────────────────────────
+
+// 메모 입력칸이 라벨 옆에 끼어 좁아지던 문제 (form-group 은 세로 flex 인데 display:block 이 덮어썼었다)
+await main2.evaluate(() => openContactForm(null));
+await sleep(400);
+const memoWidth = await main2.evaluate(() => {
+  const el = document.getElementById('cf_firstNote');
+  return { input: el.offsetWidth, row: el.parentElement.offsetWidth };
+});
+check('메모 입력칸이 줄 전체 폭을 쓴다', memoWidth.input > memoWidth.row * 0.9,
+  `입력칸 ${memoWidth.input}px / 줄 ${memoWidth.row}px`);
+check('라벨이 “메모”로 바뀜',
+  (await main2.evaluate(() => document.querySelector('#cf_firstNoteRow label').innerText)) === '메모');
+await main2.evaluate(() => closeContactForm());
+
+// 빠른 입력: 세 칸만 채우고 Enter
+await typeInto(main2, '#qa_name', '박영희', 10);
+await typeInto(main2, '#qa_phone', '02-555-1234', 10);
+await typeInto(main2, '#qa_memo', '자재 반입 일정 문의', 10);
+await main2.evaluate(() => quickAddContact());
+await sleep(900);
+
+const quick = readData(dataFile).contacts.find(c => c.name === '박영희');
+check('빠른 입력으로 등록됨', !!quick, `contacts=${readData(dataFile).contacts.length}건`);
+check('빠른 입력도 번호를 정규화', quick?.phones?.[0]?.value === '025551234', `value=${quick?.phones?.[0]?.value}`);
+check('메모가 기록으로 남음', quick?.notes?.[0]?.text === '자재 반입 일정 문의');
+check('02 번호는 휴대폰이 아니라 사무실로 표시', quick?.phones?.[0]?.label === '사무실', `label=${quick?.phones?.[0]?.label}`);
+check('등록 후 입력칸이 비워짐(연속 입력)',
+  await main2.evaluate(() => !document.getElementById('qa_name').value && !document.getElementById('qa_memo').value));
+await shot(main2, '10-quick-add');
+
+// 같은 번호를 다시 치면 경고 + 그 사람에게 기록 추가
+await typeInto(main2, '#qa_phone', '0255512 34', 10);
+await sleep(400);
+check('빠른 입력에서도 중복 번호를 잡음',
+  await main2.evaluate(() => document.getElementById('qa_dupWarn').style.display === 'block'));
+
+await typeInto(main2, '#qa_memo', '두 번째 통화', 10);
+await main2.evaluate(id => quickAddToExisting(id), quick.id);
+await sleep(900);
+const merged2 = readData(dataFile).contacts.find(c => c.id === quick.id);
+check('새로 만들지 않고 기존 연락처에 기록 추가',
+  merged2.notes.length === 2 && readData(dataFile).contacts.filter(c => c.name === '박영희').length === 1,
+  `notes=${merged2.notes.length}`);
+
+// 검색 팝업
+await main2.evaluate(() => openSearchPopup());
+await sleep(300);
+check('검색 팝업이 열림',
+  await main2.evaluate(() => document.getElementById('searchModal').style.display === 'flex'));
+await typeInto(main2, '#contactSearch', '박영희', 10);
+await sleep(400);
+await shot(main2, '11-search-popup');
+await main2.evaluate(() => closeSearchPopup());
+await sleep(300);
+check('팝업을 닫아도 검색이 유지되고 표시됨', await main2.evaluate(() => {
+  const chip = document.getElementById('searchChip');
+  const rows = document.querySelectorAll('#contactTable tbody tr').length;
+  return chip.style.display !== 'none' && chip.innerText.includes('박영희') && rows === 1;
+}));
+await main2.evaluate(() => clearContactSearch());
+await sleep(300);
+check('검색 해제하면 칩이 사라짐',
+  await main2.evaluate(() => document.getElementById('searchChip').style.display === 'none'));
+
 // ── 5) 트레이 상주 — 메인 창을 닫아도 앱이 죽지 않는가 (2단계의 핵심 보증) ──
 // 앱이 Tray 생성에 실패했다면 여기까지 오지도 못한다(실행 자체가 죽는다).
 await app2.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].close(); });
