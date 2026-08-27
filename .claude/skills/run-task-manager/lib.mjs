@@ -26,7 +26,7 @@ export function electronBinary() {
   return bin;
 }
 
-const APP_FILES = ['main.js', 'index.html', 'widget.html', 'phone.html', 'quickadd.html', 'package.json'];
+const APP_FILES = ['main.js', 'index.html', 'widget.html', 'quickadd.html', 'package.json'];
 const DATA_LINE_OLD = "const dataFilePath = path.join(app.getPath('documents'), '업무관리_데이터.json');";
 const DATA_LINE_NEW = "const dataFilePath = process.env.TM_DATA_FILE || path.join(app.getPath('documents'), '업무관리_데이터.json');";
 
@@ -113,12 +113,10 @@ export async function waitForWindow(app, urlPart, timeout = 30_000) {
 }
 
 export const widgetPage = app => app.windows().find(w => w.url().includes('widget.html'));
-export const phonePage  = app => app.windows().find(w => w.url().includes('phone.html'));
 export const quickAddPage = app => app.windows().find(w => w.url().includes('quickadd.html'));
 
-/** 전화 아이콘·빠른 등록 창을 뺀 '문서 창'만. 창 개수를 셀 때 쓴다. */
-export const docWindows = app => app.windows().filter(w =>
-  !w.url().includes('phone.html') && !w.url().includes('quickadd.html'));
+/** 빠른 등록 창을 뺀 '문서 창'만. 창 개수를 셀 때 쓴다. */
+export const docWindows = app => app.windows().filter(w => !w.url().includes('quickadd.html'));
 
 /**
  * CDP 키보드(page.keyboard.type)는 Electron 창의 OS 포커스에 의존해서 입력이 통째로 유실된다.

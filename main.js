@@ -61,8 +61,6 @@ function createTray() {
         { label: '빠른 등록', click: openQuickAdd },
         { label: '달력 위젯 띄우기', click: openWidget },
         { type: 'separator' },
-        { label: '전화 아이콘 보이기 / 숨기기', click: () => { phoneWindow ? hidePhoneIcon() : showPhoneIcon(); } },
-        { type: 'separator' },
         { label: '완전 종료', click: () => { isQuitting = true; app.quit(); } },
     ]));
     tray.on('click', showMainWindow);
@@ -90,9 +88,7 @@ function notifyTrayOnce() {
 app.whenReady().then(() => {
     createWindow();
     createTray();
-    if (!getSettings().phoneIconHidden) createPhoneIcon();
     applyHotkeyFromSettings();
-    watchDisplays();
 });
 
 // 📌 창이 하나도 없어도 앱을 끝내지 않는다 (기본 동작은 종료).
@@ -207,15 +203,12 @@ ipcMain.on('set-autostart', (event, enable) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// 전화 아이콘 · 빠른 등록 · 전역 단축키
+// 빠른 등록 · 전역 단축키
 // ══════════════════════════════════════════════════════════════════
 
-const ICON_SIZE = 56;
 const DEFAULT_HOTKEY = 'F4';
 
-let phoneWindow = null;
 let quickAddWindow = null;
-let dragOrigin = null;
 
 function getSettings() {
     const doc = readDoc();
@@ -228,100 +221,6 @@ function patchSettings(patch) {
     writeDoc(doc);
     return doc.settings;
 }
-
-// 📌 모니터가 2대이므로 좌표만으로는 어느 화면인지 알 수 없다.
-// 저장된 좌표가 아직 어느 화면 안에 들어가는지 켤 때마다 확인한다.
-function isPositionUsable(pos) {
-    if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') return false;
-    return screen.getAllDisplays().some(d => {
-        const b = d.workArea;
-        return pos.x >= b.x && pos.y >= b.y &&
-               pos.x + ICON_SIZE <= b.x + b.width &&
-               pos.y + ICON_SIZE <= b.y + b.height;
-    });
-}
-
-function defaultIconPosition() {
-    const d = screen.getPrimaryDisplay();
-    const b = d.workArea;
-    return { x: b.x + b.width - ICON_SIZE - 20, y: b.y + 20, displayId: d.id };
-}
-
-function resolveIconPosition() {
-    const saved = getSettings().phoneIcon;
-    return isPositionUsable(saved) ? saved : defaultIconPosition();
-}
-
-function createPhoneIcon() {
-    if (phoneWindow) { phoneWindow.show(); return; }
-
-    const pos = resolveIconPosition();
-    phoneWindow = new BrowserWindow({
-        width: ICON_SIZE, height: ICON_SIZE, x: pos.x, y: pos.y,
-        frame: false, transparent: true, resizable: false, movable: true,
-        alwaysOnTop: true, skipTaskbar: true, hasShadow: false,
-        webPreferences: { nodeIntegration: true, contextIsolation: false }
-    });
-    phoneWindow.setAlwaysOnTop(true, 'screen-saver');   // 전체화면 위에서도 보이게
-    phoneWindow.loadFile('phone.html');
-    phoneWindow.on('closed', () => { phoneWindow = null; });
-}
-
-function hidePhoneIcon() {
-    if (phoneWindow) { phoneWindow.close(); phoneWindow = null; }
-    patchSettings({ phoneIconHidden: true });
-}
-
-function showPhoneIcon() {
-    patchSettings({ phoneIconHidden: false });
-    createPhoneIcon();
-}
-
-// 모니터를 빼거나 해상도를 바꾸면 아이콘이 화면 밖으로 나갈 수 있다.
-function watchDisplays() {
-    const recheck = () => {
-        if (!phoneWindow) return;
-        const [x, y] = phoneWindow.getPosition();
-        if (isPositionUsable({ x, y })) return;
-        const pos = defaultIconPosition();
-        phoneWindow.setPosition(pos.x, pos.y);
-        patchSettings({ phoneIcon: pos });
-    };
-    screen.on('display-removed', recheck);
-    screen.on('display-added', recheck);
-    screen.on('display-metrics-changed', recheck);
-}
-
-ipcMain.on('phone-drag-start', () => {
-    if (!phoneWindow) return;
-    const [x, y] = phoneWindow.getPosition();
-    dragOrigin = { x, y };
-});
-
-ipcMain.on('phone-drag-move', (event, d) => {
-    if (!phoneWindow || !dragOrigin) return;
-    phoneWindow.setPosition(Math.round(dragOrigin.x + d.dx), Math.round(dragOrigin.y + d.dy));
-});
-
-ipcMain.on('phone-drag-end', () => {
-    if (!phoneWindow) return;
-    const [x, y] = phoneWindow.getPosition();
-    const display = screen.getDisplayNearestPoint({ x: x + ICON_SIZE / 2, y: y + ICON_SIZE / 2 });
-    patchSettings({ phoneIcon: { x, y, displayId: display.id } });
-    dragOrigin = null;
-});
-
-ipcMain.on('phone-context-menu', () => {
-    if (!phoneWindow) return;
-    Menu.buildFromTemplate([
-        { label: '연락처 목록', click: () => openContactsTab() },
-        { label: '업무 창 열기', click: showMainWindow },
-        { label: '달력 위젯 띄우기', click: openWidget },
-        { type: 'separator' },
-        { label: '아이콘 숨기기', click: hidePhoneIcon },
-        { label: '완전 종료', click: () => { isQuitting = true; app.quit(); } },
-    ]).popup({ window: phoneWindow });
-});
 
 function openContactsTab() {
     showMainWindow();
@@ -340,23 +239,16 @@ function openQuickAdd() {
         return;
     }
 
-    const W = 460, H = 190;
-
-    // 📌 아이콘이 있는 모니터에 띄운다. 주 모니터 한가운데 고정이면
+    const W = 470, H = 236;
+    // 마우스가 있는 화면에 띄운다. 모니터가 2대라 주 모니터 고정이면
     // 두 번째 화면에서 일하다가 시선을 옮겨야 한다.
-    const anchor = phoneWindow ? phoneWindow.getPosition() : null;
-    const display = anchor
-        ? screen.getDisplayNearestPoint({ x: anchor[0], y: anchor[1] })
-        : screen.getPrimaryDisplay();
+    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const b = display.workArea;
-
-    let x = anchor ? anchor[0] + ICON_SIZE + 10 : b.x + b.width - W - 30;
-    let y = anchor ? anchor[1] : b.y + 40;
-    x = Math.min(Math.max(x, b.x + 8), b.x + b.width - W - 8);
-    y = Math.min(Math.max(y, b.y + 8), b.y + b.height - H - 8);
+    const x = Math.round(b.x + b.width - W - 40);
+    const y = Math.round(b.y + 60);
 
     quickAddWindow = new BrowserWindow({
-        width: W, height: H, x, y,
+        width: W, height: H, x: x, y: y,
         frame: false, transparent: true, resizable: false,
         alwaysOnTop: true, skipTaskbar: true,
         webPreferences: { nodeIntegration: true, contextIsolation: false }
@@ -372,13 +264,15 @@ ipcMain.on('close-quick-add', () => {
     if (quickAddWindow && !quickAddWindow.isDestroyed()) quickAddWindow.close();
 });
 
-// 📌 빠른 등록 창은 자기 사본에 연락처를 밀어 넣지 않는다.
-// 항상 디스크의 최신 목록에 덧붙이고, 결과를 돌려준다.
-// (창이 들고 있던 낡은 목록으로 통째로 저장하면 다른 창이 방금 추가한 연락처가 사라진다)
-function broadcastContacts(list, exceptId) {
+// 📌 빠른 등록 창은 자기 사본을 통째로 저장하지 않는다.
+// 항상 디스크의 최신 목록에 덧붙이고 결과를 돌려준다. 그래야 이 창이 떠 있는
+// 동안 메인 창에서 추가한 것이 사라지지 않는다.
+function broadcastSection(section, value, exceptId) {
+    const patch = {};
+    patch[section] = value;
     BrowserWindow.getAllWindows().forEach(win => {
         if (win.webContents.id !== exceptId) {
-            win.webContents.send('sync-sections', { contacts: list });
+            win.webContents.send('sync-sections', patch);
         }
     });
 }
@@ -408,7 +302,7 @@ ipcMain.handle('add-contact', (event, { name, phone, memo }) => {
 
     doc.contacts = list;
     writeDoc(doc);
-    broadcastContacts(list, event.sender.id);
+    broadcastSection('contacts', list, event.sender.id);
     return { ok: true, contacts: list };
 });
 
@@ -426,8 +320,39 @@ ipcMain.handle('add-note', (event, { id, text }) => {
 
     doc.contacts = list;
     writeDoc(doc);
-    broadcastContacts(list, event.sender.id);
+    broadcastSection('contacts', list, event.sender.id);
     return { ok: true, contacts: list };
+});
+
+// 업무도 같은 방식으로 덧붙인다.
+ipcMain.handle('add-task', (event, { content, dueDate }) => {
+    const doc = readDoc();
+    const tasks = Array.isArray(doc.tasks) ? doc.tasks : [];
+    const categories = (Array.isArray(doc.categories) && doc.categories.length)
+        ? doc.categories : ['기타'];
+    const at = stamp();
+
+    tasks.push({
+        id: Date.now(),
+        regDate: at.split('T')[0],
+        dueDate: dueDate || '',
+        content: content || '',
+        // 메인 창의 신규 등록 폼과 같은 기본값. 나중에 마스터 리스트에서 고치면 된다.
+        category: categories.includes('기타') ? '기타' : categories[0],
+        firstAction: '',
+        importance: '높음',
+        urgency: '높음',
+        priority: 1,
+        timeReq: '',
+        status: '대기중',
+        remarks: '',
+        isTodayTask: false
+    });
+
+    doc.tasks = tasks;
+    writeDoc(doc);
+    broadcastSection('tasks', tasks, event.sender.id);
+    return { ok: true, count: tasks.length };
 });
 
 // ── 전역 단축키 ───────────────────────────────────────────────────
@@ -450,27 +375,21 @@ function applyHotkeyFromSettings() {
     const s = getSettings();
     const accel = s.hotkey === undefined ? DEFAULT_HOTKEY : s.hotkey;
     const res = applyHotkey(accel);
-    if (!res.ok && accel) {
-        // 다른 프로그램이 이미 쓰고 있는 경우
-        if (tray) {
-            try {
-                tray.displayBalloon({
-                    icon: nativeImage.createFromPath(iconPath),
-                    title: '단축키를 등록하지 못했습니다',
-                    content: '‘' + accel + '’ 은(는) 다른 프로그램이 쓰고 있습니다. 설정에서 다른 키로 바꿔주세요.'
-                });
-            } catch (e) {}
-        }
+    if (!res.ok && accel && tray) {
+        try {
+            tray.displayBalloon({
+                icon: nativeImage.createFromPath(iconPath),
+                title: '단축키를 등록하지 못했습니다',
+                content: '‘' + accel + '’ 은(는) 다른 프로그램이 쓰고 있습니다. 설정에서 다른 키로 바꿔주세요.'
+            });
+        } catch (e) {}
     }
     return res;
 }
 
 ipcMain.handle('get-hotkey', () => {
     const s = getSettings();
-    return {
-        accel: s.hotkey === undefined ? DEFAULT_HOTKEY : s.hotkey,
-        iconHidden: !!s.phoneIconHidden
-    };
+    return { accel: s.hotkey === undefined ? DEFAULT_HOTKEY : s.hotkey };
 });
 
 ipcMain.handle('set-hotkey', (event, accel) => {
@@ -478,11 +397,6 @@ ipcMain.handle('set-hotkey', (event, accel) => {
     if (res.ok) patchSettings({ hotkey: accel });
     else applyHotkeyFromSettings();   // 실패하면 원래 키로 되돌린다
     return res;
-});
-
-ipcMain.handle('set-icon-visible', (event, visible) => {
-    if (visible) showPhoneIcon(); else hidePhoneIcon();
-    return { ok: true, visible: visible };
 });
 
 app.on('will-quit', () => { globalShortcut.unregisterAll(); });

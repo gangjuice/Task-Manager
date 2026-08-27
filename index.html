@@ -110,7 +110,7 @@
         #contactSearch { width: 100%; padding: 12px 14px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
         .search-hint { font-size: 13px; color: #7f8c8d; margin: 10px 0 0; }
         .toast { position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); background: rgba(44,62,80,0.95); color: #fff; padding: 11px 22px; border-radius: 22px; font-size: 14px; font-weight: bold; z-index: 3000; display: none; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
-        /* ── 접수 관리 (표) ── */
+        /* ── 프로젝트 (표) ── */
         .sheet-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e4e9ec; }
         .sheet-tab { background: #ecf0f1; color: #5b6b76; border: 1px solid #dfe4e8; border-radius: 4px 4px 0 0; padding: 7px 14px; font-size: 13px; font-weight: bold; cursor: pointer; }
         .sheet-tab:hover { background: #e2e8ec; }
@@ -151,6 +151,9 @@
         .opt-badge { display: inline-block; padding: 1px 9px; border-radius: 10px; color: #fff; font-size: 11px; font-weight: bold; }
         .opt-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
         .undo-note { font-size: 12px; color: #95a5a6; }
+        .sort-mark { color: #2980b9; margin-left: 5px; font-size: 11px; }
+        .filter-mark { color: #e67e22; margin-left: 3px; font-size: 11px; }
+        table.grid thead th:hover { background: #e9eef2; }
     </style>
 </head>
 <body>
@@ -357,8 +360,14 @@
         </div>
     </div>
 
+    <div id="colFilterMenu" class="context-menu">
+        <ul id="colFilterList"></ul>
+    </div>
+
     <div id="colContextMenu" class="context-menu">
         <ul>
+            <li onclick="openColFilter(ctxCol)">▽ 필터</li>
+            <li onclick="toggleSort(ctxCol)">↕ 정렬 (오름/내림)</li>
             <li class="edit-btn" onclick="openColumnModal(ctxCol)">✏️ 열 편집</li>
             <li onclick="insertColumn(ctxCol, 'left')">⬅ 왼쪽에 열 추가</li>
             <li onclick="insertColumn(ctxCol, 'right')">➡ 오른쪽에 열 추가</li>
@@ -495,7 +504,7 @@
         <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">마스터 리스트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'today')">오늘 할 일</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'contacts')">📇 연락처</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 접수 관리</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 프로젝트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'completed')">✅ 완료</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
     </div>
@@ -553,7 +562,7 @@
     </div>
 
     <div id="sheets" class="tab-content">
-        <h2>📊 접수 관리 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 열 편집 / 행 번호 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
+        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 열 편집 / 행 번호 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -598,16 +607,7 @@
         </div>
         
         <div class="setting-section">
-            <h3>📞 전화 아이콘 · 빠른 등록 단축키</h3>
-            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 15px;">
-                전화 아이콘은 항상 화면 위에 떠 있습니다. <b>클릭하면 빠른 등록</b>, <b>끌면 위치 이동</b>, <b>우클릭하면 메뉴</b>가 뜹니다.
-            </p>
-
-            <label class="toggle-switch" style="margin-bottom: 18px;">
-                <input type="checkbox" id="phoneIconCheckbox" onchange="togglePhoneIcon()"> 전화 아이콘 띄우기
-            </label>
-
-            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+            <h3>⌨️ 빠른 등록 단축키</h3>
 
             <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 10px;">
                 단축키는 <b>윈도우 전체에서 그 키를 가져옵니다.</b> 기본값 <code>F4</code>는 엑셀의 절대참조($ 고정)를
@@ -2178,7 +2178,6 @@
         async function loadHotkeySettings() {
             const s = await ipcRenderer.invoke('get-hotkey');
             document.getElementById('hotkeyInput').value = s.accel || '';
-            document.getElementById('phoneIconCheckbox').checked = !s.iconHidden;
             showHotkeyStatus(s.accel ? '현재 단축키: ' + s.accel : '단축키가 꺼져 있습니다', s.accel ? 'ok' : 'off');
         }
 
@@ -2207,16 +2206,10 @@
         async function disableHotkey() {
             await ipcRenderer.invoke('set-hotkey', '');
             document.getElementById('hotkeyInput').value = '';
-            showHotkeyStatus('단축키를 껐습니다. 전화 아이콘 클릭으로는 계속 열 수 있습니다.', 'off');
+            showHotkeyStatus('단축키를 껐습니다. 트레이 아이콘 우클릭 → 빠른 등록으로 열 수 있습니다.', 'off');
         }
 
-        async function togglePhoneIcon() {
-            const visible = document.getElementById('phoneIconCheckbox').checked;
-            await ipcRenderer.invoke('set-icon-visible', visible);
-            showToast(visible ? '전화 아이콘을 띄웠습니다' : '전화 아이콘을 숨겼습니다');
-        }
-
-        // 전화 아이콘 우클릭 → 연락처 목록
+        // 트레이 → 연락처 목록
         ipcRenderer.on('open-contacts-tab', () => {
             const btns = document.querySelectorAll('.tab-btn');
             if (btns[4]) btns[4].click();
@@ -2328,21 +2321,26 @@
 
 
         // ══════════════════════════════════════════════════════════════
-        // 접수 관리 (엑셀처럼 쓰는 표)
+        // 프로젝트 (엑셀처럼 쓰는 표)
         // ══════════════════════════════════════════════════════════════
 
         let sheets = [];
         let activeSheetId = null;
         let ctxCol = null, ctxRow = null;
-        let sel = null;          // { r1, c1, r2, c2 } — r1,c1 이 기준점(앵커)
-        let editMode = false;    // F2 / 더블클릭으로 들어가는 "편집 모드". 엑셀과 같은 구분
+        let sel = null;          // { r1, c1, r2, c2 } — 화면에 보이는 줄 기준. r1,c1 이 앵커
+        let editMode = false;    // F2 / 더블클릭으로 들어가는 "편집 모드" (엑셀과 같은 구분)
         let undoStack = [], redoStack = [];
         let sheetSaveTimer = null;
         let editingColIndex = null;
         let draftOptions = [];
 
+        // 정렬·필터는 보기 상태다. 데이터의 행 순서를 바꾸지 않는다.
+        let sheetSort = null;    // { colIndex, dir: 'asc' | 'desc' }
+        let sheetFilters = {};   // { colId: '값' }
+        let curView = [];        // 화면 줄 번호 → 실제 행 번호
+
         const TYPE_LABEL = { text: '텍스트', number: '숫자', date: '날짜', select: '선택', check: '체크' };
-        const TYPED_IN_CELL = { text: 1, number: 1, date: 1 };   // 입력칸을 그대로 두는 종류
+        const TYPED_IN_CELL = { text: 1, number: 1, date: 1 };
 
         const SHEET_TEMPLATE = [
             { name: '고객번호', type: 'text' },
@@ -2350,11 +2348,12 @@
             { name: '계약전력', type: 'number' },
             { name: '접수일',   type: 'date' },
             { name: '진행상태', type: 'select', options: [
-                { name: '접수',     color: '#3498db' },
-                { name: '보완요청', color: '#e67e22' },
-                { name: '승인',     color: '#2ecc71' },
-                { name: '시공중',   color: '#9b59b6' },
-                { name: '준공',     color: '#7f8c8d' }
+                { name: '접수',             color: '#95a5a6' },
+                { name: '현장조사결과등록', color: '#3498db' },
+                { name: '설계중',           color: '#9b59b6' },
+                { name: '공사관리',         color: '#e67e22' },
+                { name: '현장시공완료',     color: '#16a085' },
+                { name: '송전완료',         color: '#27ae60' }
             ] },
             { name: '담당자', type: 'text' },
             { name: '비고',   type: 'text' }
@@ -2371,7 +2370,6 @@
         // ── 저장 · 되돌리기 ───────────────────────────────────────────
 
         // 📌 셀 하나 고칠 때마다 파일을 쓰면 30행 × 15열에서 쓰기가 폭주한다.
-        // 메모장에서 겪은 문제라 처음부터 디바운스로 저장한다.
         function saveSheets() {
             if (sheetSaveTimer) clearTimeout(sheetSaveTimer);
             sheetSaveTimer = setTimeout(() => {
@@ -2390,7 +2388,6 @@
         window.addEventListener('beforeunload', flushSheetSave);
         window.addEventListener('blur', flushSheetSave);
 
-        // 📌 엑셀 쓰던 손은 Ctrl+Z 를 반드시 누른다. 없으면 실수 한 번에 데이터가 날아간다.
         function pushUndo() {
             undoStack.push(JSON.stringify(sheets));
             if (undoStack.length > 40) undoStack.shift();
@@ -2414,6 +2411,114 @@
             renderSheets();
             saveSheets();
         }
+
+        // ── 보기 (정렬 · 필터) ────────────────────────────────────────
+
+        function compareCell(col, a, b) {
+            const ea = (a === undefined || a === null || a === '' || a === false);
+            const eb = (b === undefined || b === null || b === '' || b === false);
+            if (ea && eb) return 0;
+            if (ea) return 1;    // 빈 값은 방향과 상관없이 뒤로
+            if (eb) return -1;
+            if (col.type === 'number') return (Number(String(a).replace(/[^0-9.-]/g, '')) || 0) -
+                                              (Number(String(b).replace(/[^0-9.-]/g, '')) || 0);
+            if (col.type === 'check') return (a ? 1 : 0) - (b ? 1 : 0);
+            return String(a).localeCompare(String(b), 'ko', { numeric: true });
+        }
+
+        function cellRaw(row, col) {
+            return row.cells[col.id];
+        }
+
+        function filterTextOf(col, v) {
+            if (col.type === 'check') return v ? 'Y' : '';
+            return v == null ? '' : String(v);
+        }
+
+        function computeView() {
+            const s = curSheet();
+            if (!s) { curView = []; return curView; }
+
+            let idx = s.rows.map((_, i) => i);
+
+            Object.keys(sheetFilters).forEach(colId => {
+                const want = sheetFilters[colId];
+                const col = s.columns.find(c => c.id === colId);
+                if (!col) return;
+                idx = idx.filter(i => filterTextOf(col, cellRaw(s.rows[i], col)) === want);
+            });
+
+            if (sheetSort) {
+                const col = s.columns[sheetSort.colIndex];
+                if (col) {
+                    const dir = sheetSort.dir === 'asc' ? 1 : -1;
+                    idx = idx.slice().sort((a, b) =>
+                        dir * compareCell(col, cellRaw(s.rows[a], col), cellRaw(s.rows[b], col)));
+                }
+            }
+
+            curView = idx;
+            return curView;
+        }
+
+        function realRow(displayR) {
+            return curView[displayR];
+        }
+
+        function toggleSort(colIndex) {
+            if (sheetSort && sheetSort.colIndex === colIndex) {
+                if (sheetSort.dir === 'asc') sheetSort.dir = 'desc';
+                else sheetSort = null;              // 세 번째 클릭이면 원래 순서로
+            } else {
+                sheetSort = { colIndex: colIndex, dir: 'asc' };
+            }
+            sel = null;
+            renderGrid();
+        }
+
+        function openColFilter(colIndex) {
+            const s = curSheet();
+            if (!s) return;
+            const col = s.columns[colIndex];
+            const list = document.getElementById('colFilterList');
+
+            const seen = new Set();
+            s.rows.forEach(r => seen.add(filterTextOf(col, cellRaw(r, col))));
+            const values = Array.from(seen).sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+
+            list.innerHTML =
+                '<li onclick="clearColFilter(\'' + col.id + '\')">✅ <b>필터 해제 (전체보기)</b></li>' +
+                values.map(v =>
+                    '<li onclick="applyColFilter(\'' + col.id + '\', \'' + esc(v).replace(/'/g, '&#39;') + '\')">' +
+                    (v === '' ? '<i style="color:#95a5a6;">(빈 값)</i>' : esc(v)) + '</li>').join('');
+
+            hideSheetMenus();
+            const m = document.getElementById('colFilterMenu');
+            m.style.display = 'block';
+            m.style.left = lastMenuX + 'px';
+            m.style.top = lastMenuY + 'px';
+        }
+
+        function applyColFilter(colId, value) {
+            sheetFilters[colId] = value.replace(/&#39;/g, "'");
+            sel = null;
+            renderGrid();
+        }
+
+        function clearColFilter(colId) {
+            delete sheetFilters[colId];
+            sel = null;
+            renderGrid();
+        }
+
+        function clearAllViewState() {
+            sheetSort = null;
+            sheetFilters = {};
+            sel = null;
+            renderGrid();
+        }
+
+        function hasFilter() { return Object.keys(sheetFilters).length > 0; }
 
         // ── 프로젝트(시트) ────────────────────────────────────────────
 
@@ -2445,8 +2550,9 @@
 
             sheets.push(sheet);
             activeSheetId = sheet.id;
+            sheetSort = null; sheetFilters = {};
             sel = (columns.length && sheet.rows.length) ? { r1: 0, c1: 0, r2: 0, c2: 0 } : null;
-            rememberProject(name);   // 연락처의 "관련 프로젝트"와 같은 목록을 쓴다
+            rememberProject(name);
 
             closeNewSheet();
             renderSheets();
@@ -2456,6 +2562,7 @@
 
         function switchSheet(id) {
             activeSheetId = id;
+            sheetSort = null; sheetFilters = {};
             const s = curSheet();
             sel = (s && s.columns.length && s.rows.length) ? { r1: 0, c1: 0, r2: 0, c2: 0 } : null;
             editMode = false;
@@ -2482,7 +2589,7 @@
             pushUndo();
             sheets = sheets.filter(x => x.id !== s.id);
             activeSheetId = sheets.length ? sheets[0].id : null;
-            sel = null;
+            sheetSort = null; sheetFilters = {}; sel = null;
             renderSheets();
             saveSheets();
         }
@@ -2492,20 +2599,26 @@
         function addSheetRow() {
             const s = curSheet();
             if (!s) return;
+            // 필터가 걸려 있으면 새 행(빈 값)이 화면에서 사라져 혼란스럽다. 먼저 해제한다.
+            if (hasFilter()) { sheetFilters = {}; showToast('필터를 해제하고 행을 추가했습니다'); }
             pushUndo();
             s.rows.push({ id: uid('r'), cells: {} });
             s.updatedAt = nowStamp();
-            sel = { r1: s.rows.length - 1, c1: 0, r2: s.rows.length - 1, c2: 0 };
+            computeView();
+            const dr = curView.indexOf(s.rows.length - 1);
+            sel = dr >= 0 ? { r1: dr, c1: 0, r2: dr, c2: 0 } : null;
             editMode = false;
             renderGrid();
             saveSheets();
         }
 
-        function insertRow(index, where) {
+        function insertRow(displayIndex, where) {
             const s = curSheet();
             if (!s) return;
+            const real = realRow(displayIndex);
+            if (real === undefined) return;
             pushUndo();
-            s.rows.splice(where === 'above' ? index : index + 1, 0, { id: uid('r'), cells: {} });
+            s.rows.splice(where === 'above' ? real : real + 1, 0, { id: uid('r'), cells: {} });
             renderGrid();
             saveSheets();
         }
@@ -2514,10 +2627,16 @@
             const s = curSheet();
             if (!s || !sel) return;
             const from = Math.min(sel.r1, sel.r2), to = Math.max(sel.r1, sel.r2);
-            const count = to - from + 1;
-            if (!confirm(count + '개 행을 삭제할까요?')) return;
+            const reals = [];
+            for (let dr = from; dr <= to; dr++) {
+                const real = realRow(dr);
+                if (real !== undefined) reals.push(real);
+            }
+            if (!reals.length) return;
+            if (!confirm(reals.length + '개 행을 삭제할까요?')) return;
+
             pushUndo();
-            s.rows.splice(from, count);
+            reals.sort((a, b) => b - a).forEach(i => s.rows.splice(i, 1));
             sel = null;
             renderGrid();
             saveSheets();
@@ -2560,15 +2679,8 @@
             ).join('');
         }
 
-        function addColOption() {
-            draftOptions.push({ name: '', color: '#3498db' });
-            renderColOptions();
-        }
-
-        function removeColOption(i) {
-            draftOptions.splice(i, 1);
-            renderColOptions();
-        }
+        function addColOption() { draftOptions.push({ name: '', color: '#3498db' }); renderColOptions(); }
+        function removeColOption(i) { draftOptions.splice(i, 1); renderColOptions(); }
 
         function saveColumn() {
             const s = curSheet();
@@ -2601,6 +2713,7 @@
             pushUndo();
             s.columns.splice(where === 'left' ? index : index + 1, 0,
                 { id: uid('c'), name: '새 열', type: 'text' });
+            sheetSort = null;
             renderGrid();
             saveSheets();
         }
@@ -2613,6 +2726,7 @@
             pushUndo();
             const [col] = s.columns.splice(index, 1);
             s.columns.splice(to, 0, col);
+            sheetSort = null;
             renderGrid();
             saveSheets();
         }
@@ -2635,6 +2749,8 @@
             pushUndo();
             s.columns.splice(index, 1);
             s.rows.forEach(r => { delete r.cells[col.id]; });
+            delete sheetFilters[col.id];
+            sheetSort = null;
             sel = null;
             renderGrid();
             saveSheets();
@@ -2642,10 +2758,13 @@
 
         // ── 우클릭 메뉴 ───────────────────────────────────────────────
 
+        let lastMenuX = 0, lastMenuY = 0;
+
         function showColMenu(e, index) {
             e.preventDefault();
             e.stopPropagation();
             ctxCol = index;
+            lastMenuX = e.pageX; lastMenuY = e.pageY;
             hideSheetMenus();
             const m = document.getElementById('colContextMenu');
             m.style.display = 'block';
@@ -2653,13 +2772,13 @@
             m.style.top = e.pageY + 'px';
         }
 
-        function showRowMenu2(e, index) {
+        function showRowMenu2(e, displayIndex) {
             e.preventDefault();
             e.stopPropagation();
-            ctxRow = index;
+            ctxRow = displayIndex;
             const s = curSheet();
-            if (!sel || index < Math.min(sel.r1, sel.r2) || index > Math.max(sel.r1, sel.r2)) {
-                sel = { r1: index, c1: 0, r2: index, c2: Math.max(0, s.columns.length - 1) };
+            if (!sel || displayIndex < Math.min(sel.r1, sel.r2) || displayIndex > Math.max(sel.r1, sel.r2)) {
+                sel = { r1: displayIndex, c1: 0, r2: displayIndex, c2: Math.max(0, s.columns.length - 1) };
                 renderGrid();
             }
             hideSheetMenus();
@@ -2670,7 +2789,7 @@
         }
 
         function hideSheetMenus() {
-            ['colContextMenu', 'rowContextMenu2'].forEach(id => {
+            ['colContextMenu', 'rowContextMenu2', 'colFilterMenu'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -2681,22 +2800,19 @@
 
         function cellDown(e, r, c) {
             // 이미 선택된 칸의 입력칸/드롭다운을 다시 누른 것이면 브라우저에 맡긴다.
-            // (커서 위치를 옮기거나 드롭다운을 여는 동작)
             if (isAnchor(r, c) && e.target && e.target.classList && e.target.classList.contains('cell-input')) {
                 editMode = true;
                 return;
             }
 
             // 📌 기본 동작을 막아야 한다. 여기서 표를 다시 그리는 사이에 브라우저가
-            // 포커스를 가져가면, 우리가 새로 넣은 입력칸이 곧바로 풀려서
-            // 클릭한 뒤에 친 글자가 아무 데도 안 들어간다.
+            // 포커스를 가져가면, 새로 넣은 입력칸이 곧바로 풀려서 친 글자가 사라진다.
             e.preventDefault();
 
             if (e.shiftKey && sel) { sel.r2 = r; sel.c2 = c; }
             else { sel = { r1: r, c1: c, r2: r, c2: c }; editMode = false; }
 
-            // 체크 열은 여기서 바로 켠다. 위에서 화면을 다시 그리기 때문에 td 의 onclick 은
-            // 원래 요소가 사라진 뒤라 실행되지 않는다.
+            // 체크 열은 여기서 바로 켠다. 화면을 다시 그리므로 td 의 onclick 은 실행되지 않는다.
             const sheet = curSheet();
             const col = sheet && sheet.columns[c];
             if (col && col.type === 'check') { toggleCheck(r, c); return; }
@@ -2706,7 +2822,7 @@
 
         function cellDouble(r, c) {
             sel = { r1: r, c1: c, r2: r, c2: c };
-            editMode = true;      // 편집 모드: 좌우 방향키가 글자 사이를 움직인다 (엑셀과 동일)
+            editMode = true;
             renderGrid();
         }
 
@@ -2727,24 +2843,27 @@
             return esc(v == null ? '' : v);
         }
 
-        function setCell(r, c, value) {
+        function setCell(displayR, c, value) {
             const s = curSheet();
             const col = s && s.columns[c];
-            if (!col || !s.rows[r]) return false;
-            const before = s.rows[r].cells[col.id];
+            const real = realRow(displayR);
+            if (!col || real === undefined || !s.rows[real]) return false;
+            const before = s.rows[real].cells[col.id];
             if (String(before == null ? '' : before) === String(value)) return false;
             pushUndo();
-            s.rows[r].cells[col.id] = value;
+            s.rows[real].cells[col.id] = value;
             s.updatedAt = nowStamp();
             saveSheets();
             return true;
         }
 
-        function toggleCheck(r, c) {
+        function toggleCheck(displayR, c) {
             const s = curSheet();
             const col = s.columns[c];
+            const real = realRow(displayR);
+            if (real === undefined) return;
             pushUndo();
-            s.rows[r].cells[col.id] = !s.rows[r].cells[col.id];
+            s.rows[real].cells[col.id] = !s.rows[real].cells[col.id];
             s.updatedAt = nowStamp();
             renderGrid();
             saveSheets();
@@ -2759,7 +2878,7 @@
             if (dir === 'down') r++;
             if (dir === 'left') c--;
             if (dir === 'right') c++;
-            r = Math.max(0, Math.min(r, s.rows.length - 1));
+            r = Math.max(0, Math.min(r, curView.length - 1));
             c = Math.max(0, Math.min(c, s.columns.length - 1));
             if (extend) { sel.r2 = r; sel.c2 = c; }
             else sel = { r1: r, c1: c, r2: r, c2: c };
@@ -2767,16 +2886,21 @@
 
         // 📌 선택된 셀에는 항상 입력칸이 살아 있다.
         // 한글은 IME 조합 중 keydown 의 키가 'Process' 로 와서, "글자를 치면 그때
-        // 입력칸을 만든다"는 방식으로는 첫 글자가 씹힌다. 입력칸을 미리 두면
-        // 한글이든 영어든 그냥 쳐진다.
+        // 입력칸을 만든다"는 방식으로는 첫 글자가 씹힌다.
         function attachAnchorInput() {
             const input = document.querySelector('#gridWrap .cell-input');
             if (!input) { document.getElementById('gridWrap').focus(); return; }
 
-            // 📌 이 입력칸이 어느 시트의 어느 칸 소속인지 붙잡아 둔다.
-            // blur 는 화면을 다시 그린 뒤에 늦게 오기도 하는데, 그때 activeSheetId 가 이미
-            // 다른 시트로 바뀌어 있으면 남의 시트에 값을 써버린다.
-            const owner = { sheetId: activeSheetId, r: sel.r1, c: sel.c1 };
+            // 📌 이 입력칸이 어느 시트의 어느 칸 소속인지 id 로 붙잡아 둔다.
+            // blur 는 화면을 다시 그린 뒤에 늦게 오기도 하는데, 그때 정렬·필터나
+            // 활성 시트가 바뀌어 있으면 남의 칸에 값을 써버린다.
+            const s0 = curSheet();
+            const realIdx = realRow(sel.r1);
+            const owner = {
+                sheetId: activeSheetId,
+                rowId: (s0 && s0.rows[realIdx]) ? s0.rows[realIdx].id : null,
+                colId: (s0 && s0.columns[sel.c1]) ? s0.columns[sel.c1].id : null
+            };
 
             input.focus();
             if (editMode) {
@@ -2790,12 +2914,10 @@
                 if (e.isComposing || e.keyCode === 229) return;   // 한글 조합 중엔 건드리지 않는다
 
                 if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-                    e.preventDefault();
-                    e.shiftKey ? redoSheet() : undoSheet();
-                    return;
+                    e.preventDefault(); e.shiftKey ? redoSheet() : undoSheet(); return;
                 }
                 if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redoSheet(); return; }
-                if (e.ctrlKey || e.metaKey) return;               // 복사/붙여넣기는 이벤트로 처리
+                if (e.ctrlKey || e.metaKey) return;
 
                 if (e.key === 'F2') { e.preventDefault(); editMode = true; renderGrid(); return; }
                 if (e.key === 'Escape') { editMode = false; renderGrid(); return; }
@@ -2805,7 +2927,6 @@
 
                 const nav = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.key];
                 if (nav) {
-                    // 편집 모드에서는 좌우 방향키가 글자 사이를 움직인다 (엑셀과 동일)
                     if (editMode && (nav === 'left' || nav === 'right')) return;
                     e.preventDefault();
                     commitTo(owner, input.value);
@@ -2815,11 +2936,7 @@
                     return;
                 }
 
-                // 여러 칸을 고른 상태에서 Delete 는 그 범위를 비운다
-                if (e.key === 'Delete' && !editMode && selSize() > 1) {
-                    e.preventDefault();
-                    clearSelection();
-                }
+                if (e.key === 'Delete' && !editMode && selSize() > 1) { e.preventDefault(); clearSelection(); }
             };
 
             input.onblur = () => { commitTo(owner, input.value); };
@@ -2827,12 +2944,12 @@
 
         // 앵커가 아니라 "이 입력칸이 원래 붙어 있던 칸"에 쓴다.
         function commitTo(owner, value) {
-            if (!owner) return;
+            if (!owner || !owner.rowId || !owner.colId) return;
             const sheet = sheets.find(x => x.id === owner.sheetId);
             if (!sheet) return;
-            const col = sheet.columns[owner.c];
-            const row = sheet.rows[owner.r];
-            if (!col || !row) return;
+            const row = sheet.rows.find(r => r.id === owner.rowId);
+            const col = sheet.columns.find(c => c.id === owner.colId);
+            if (!row || !col) return;
             const before = row.cells[col.id];
             if (String(before == null ? '' : before) === String(value)) return;
             pushUndo();
@@ -2846,7 +2963,6 @@
             return (Math.abs(sel.r1 - sel.r2) + 1) * (Math.abs(sel.c1 - sel.c2) + 1);
         }
 
-        // 입력칸이 없는 종류(선택·체크)일 때 표 전체에서 받는 키
         function onGridKey(e) {
             const s = curSheet();
             if (!s || !sel) return;
@@ -2874,10 +2990,12 @@
             const s = curSheet();
             if (!s || !sel) return;
             pushUndo();
-            for (let r = Math.min(sel.r1, sel.r2); r <= Math.max(sel.r1, sel.r2); r++) {
+            for (let dr = Math.min(sel.r1, sel.r2); dr <= Math.max(sel.r1, sel.r2); dr++) {
+                const real = realRow(dr);
+                if (real === undefined) continue;
                 for (let c = Math.min(sel.c1, sel.c2); c <= Math.max(sel.c1, sel.c2); c++) {
                     const col = s.columns[c];
-                    if (col && s.rows[r]) delete s.rows[r].cells[col.id];
+                    if (col) delete s.rows[real].cells[col.id];
                 }
             }
             renderGrid();
@@ -2890,11 +3008,13 @@
             const s = curSheet();
             if (!s || !sel) return '';
             const out = [];
-            for (let r = Math.min(sel.r1, sel.r2); r <= Math.max(sel.r1, sel.r2); r++) {
+            for (let dr = Math.min(sel.r1, sel.r2); dr <= Math.max(sel.r1, sel.r2); dr++) {
+                const real = realRow(dr);
+                if (real === undefined) continue;
                 const line = [];
                 for (let c = Math.min(sel.c1, sel.c2); c <= Math.max(sel.c1, sel.c2); c++) {
                     const col = s.columns[c];
-                    const v = col && s.rows[r] ? s.rows[r].cells[col.id] : '';
+                    const v = col ? s.rows[real].cells[col.id] : '';
                     line.push(col && col.type === 'check' ? (v ? 'Y' : '') : (v == null ? '' : v));
                 }
                 out.push(line.join('\t'));
@@ -2906,6 +3026,13 @@
             const s = curSheet();
             if (!s || !text) return;
 
+            // 📌 정렬·필터가 걸린 상태로 붙여넣으면 보이는 줄과 실제 행이 어긋나
+            // 엉뚱한 곳에 값이 들어간다. 먼저 해제하게 한다.
+            if (sheetSort || hasFilter()) {
+                showToast('정렬·필터를 해제한 뒤 붙여넣어 주세요');
+                return;
+            }
+
             const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
             while (lines.length && lines[lines.length - 1] === '') lines.pop();
             if (!lines.length) return;
@@ -2914,7 +3041,6 @@
             pushUndo();
 
             // 📌 빈 표에 붙여넣으면 첫 줄을 열 이름으로 삼는다.
-            // 엑셀에 이미 있는 30건을 헤더째 복사해서 한 번에 옮기는 길.
             if (!s.columns.length) {
                 grid[0].forEach(name => {
                     s.columns.push({ id: uid('c'), name: String(name).trim() || '열', type: 'text' });
@@ -2983,15 +3109,13 @@
         }
 
         function renderGrid() {
-            const body = document.getElementById('sheetBody');
             const wrap = document.getElementById('gridWrap');
             if (!wrap) return;
-
-            const s = curSheet();
             const toolbar = document.getElementById('sheetToolbar');
+            const s = curSheet();
 
-            // 📌 여기서 sheetBody 를 통째로 덮어쓰면 안 된다. 그 안에 도구줄과 #gridWrap 이 들어 있어서,
-            // 한 번 덮어쓰면 프로젝트를 만들어도 그릴 곳이 사라진다. 빈 안내는 표 자리에만 넣는다.
+            // 📌 sheetBody 를 통째로 덮어쓰면 안 된다. 그 안에 도구줄과 #gridWrap 이 들어 있어서
+            // 한 번 덮어쓰면 프로젝트를 만들어도 그릴 곳이 사라진다.
             if (!s) {
                 if (toolbar) toolbar.style.display = 'none';
                 wrap.innerHTML = '<div class="sheet-empty">아직 프로젝트가 없습니다.<br>“➕ 새 프로젝트”로 시작하세요.<br><br>엑셀에 이미 표가 있다면 <b>빈 표로 시작</b> 후 헤더째 붙여넣으면 열까지 한 번에 만들어집니다.</div>';
@@ -2999,8 +3123,18 @@
             }
             if (toolbar) toolbar.style.display = 'flex';
 
-            document.getElementById('sheetHint').innerText =
-                s.rows.length + '행 · ' + s.columns.length + '열' + (undoStack.length ? '  ·  Ctrl+Z 로 되돌리기' : '');
+            computeView();
+
+            const filterCount = Object.keys(sheetFilters).length;
+            document.getElementById('sheetHint').innerHTML =
+                (filterCount || sheetSort
+                    ? '<b style="color:#2980b9;">' + curView.length + '행 보임</b> / 전체 ' + s.rows.length + '행'
+                    : s.rows.length + '행') +
+                ' · ' + s.columns.length + '열' +
+                (filterCount ? ' · 필터 ' + filterCount + '개' : '') +
+                (sheetSort ? ' · 정렬 ' + esc(s.columns[sheetSort.colIndex] ? s.columns[sheetSort.colIndex].name : '') +
+                             (sheetSort.dir === 'asc' ? ' ▲' : ' ▼') : '') +
+                ((filterCount || sheetSort) ? ' <button type="button" class="btn-inline" onclick="clearAllViewState()">보기 초기화</button>' : '');
 
             if (!s.columns.length) {
                 wrap.innerHTML = '<div class="sheet-empty">열이 없습니다.<br><b>엑셀에서 헤더째 복사해 Ctrl+V</b> 하면 열과 행이 한 번에 만들어집니다.<br>또는 “➕ 열 추가”로 직접 구성하세요.</div>';
@@ -3009,28 +3143,34 @@
 
             let html = '<table class="grid"><thead><tr><th class="rownum">#</th>';
             s.columns.forEach((col, i) => {
-                html += '<th oncontextmenu="showColMenu(event, ' + i + ')" title="우클릭: 열 편집">' +
-                        esc(col.name) + '<span class="coltype">' + (TYPE_LABEL[col.type] || '') + '</span></th>';
+                const sorted = sheetSort && sheetSort.colIndex === i;
+                const filtered = sheetFilters[col.id] !== undefined;
+                html += '<th onclick="toggleSort(' + i + ')" oncontextmenu="showColMenu(event, ' + i + ')"' +
+                        ' title="좌클릭: 정렬 ↕ / 우클릭: 필터·열 편집">' +
+                        esc(col.name) +
+                        (sorted ? '<span class="sort-mark">' + (sheetSort.dir === 'asc' ? '▲' : '▼') + '</span>' : '') +
+                        (filtered ? '<span class="filter-mark">▽</span>' : '') +
+                        '<span class="coltype">' + (TYPE_LABEL[col.type] || '') + '</span></th>';
             });
             html += '</tr></thead><tbody>';
 
-            s.rows.forEach((row, r) => {
-                html += '<tr><td class="rownum" oncontextmenu="showRowMenu2(event, ' + r + ')">' + (r + 1) + '</td>';
+            curView.forEach((real, dr) => {
+                const row = s.rows[real];
+                html += '<tr><td class="rownum" oncontextmenu="showRowMenu2(event, ' + dr + ')">' + (real + 1) + '</td>';
                 s.columns.forEach((col, c) => {
                     const cls = ['cell'];
                     if (col.type === 'number') cls.push('num');
                     if (col.type === 'check') cls.push('chk');
-                    if (inSel(r, c)) cls.push('sel');
-                    if (isAnchor(r, c)) cls.push('anchor');
+                    if (inSel(dr, c)) cls.push('sel');
+                    if (isAnchor(dr, c)) cls.push('anchor');
                     const raw = row.cells[col.id];
 
                     let inner;
-                    if (isAnchor(r, c) && TYPED_IN_CELL[col.type]) {
-                        // 📌 선택된 셀은 항상 입력칸이다. 한글 IME 가 붙을 곳이 있어야 한다.
+                    if (isAnchor(dr, c) && TYPED_IN_CELL[col.type]) {
                         inner = '<input class="cell-input" type="' + (col.type === 'date' ? 'date' : 'text') + '"' +
                                 ' value="' + esc(raw == null ? '' : raw) + '">';
-                    } else if (isAnchor(r, c) && col.type === 'select') {
-                        inner = '<select class="cell-input" onchange="setCell(' + r + ',' + c + ', this.value); renderGrid();">' +
+                    } else if (isAnchor(dr, c) && col.type === 'select') {
+                        inner = '<select class="cell-input" onchange="setCell(' + dr + ',' + c + ', this.value); renderGrid();">' +
                                 '<option value=""></option>' +
                                 (col.options || []).map(o =>
                                     '<option value="' + esc(o.name) + '"' + (o.name === raw ? ' selected' : '') + '>' + esc(o.name) + '</option>'
@@ -3039,13 +3179,17 @@
                         inner = cellText(col, raw);
                     }
 
-                    html += '<td class="' + cls.join(' ') + '" data-r="' + r + '" data-c="' + c + '"' +
-                            ' onmousedown="cellDown(event, ' + r + ', ' + c + ')"' +
-                            (col.type === 'check' ? '' : ' ondblclick="cellDouble(' + r + ',' + c + ')"') +
+                    html += '<td class="' + cls.join(' ') + '" data-r="' + dr + '" data-c="' + c + '"' +
+                            ' onmousedown="cellDown(event, ' + dr + ', ' + c + ')"' +
+                            (col.type === 'check' ? '' : ' ondblclick="cellDouble(' + dr + ',' + c + ')"') +
                             '>' + inner + '</td>';
                 });
                 html += '</tr>';
             });
+
+            if (!curView.length) {
+                html += '<tr><td class="cell" colspan="' + (s.columns.length + 1) + '" style="text-align:center; color:#7f8c8d; padding:20px;">필터에 걸리는 행이 없습니다.</td></tr>';
+            }
 
             wrap.innerHTML = html + '</tbody></table>';
             attachAnchorInput();
@@ -3060,14 +3204,14 @@
             wrap.addEventListener('keydown', onGridKey);
 
             wrap.addEventListener('copy', (e) => {
-                if (!sel || editMode) return;   // 편집 중이면 글자 복사가 우선
+                if (!sel || editMode) return;
                 e.preventDefault();
                 e.clipboardData.setData('text/plain', selectionTSV());
                 showToast('복사했습니다 — 엑셀에 그대로 붙여넣을 수 있습니다');
             });
 
             wrap.addEventListener('paste', (e) => {
-                if (editMode) return;           // 편집 중이면 글자 붙여넣기가 우선
+                if (editMode) return;
                 e.preventDefault();
                 pasteTSV(e.clipboardData.getData('text/plain'));
             });

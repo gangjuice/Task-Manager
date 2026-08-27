@@ -4,7 +4,7 @@
 // 통과하면 exit 0, 하나라도 실패하면 exit 1. 스크린샷은 SHOT_DIR에 남는다.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { launchApp, widgetPage, phonePage, quickAddPage, docWindows, typeInto, switchTab, seedData, readData, makeTask, mkDate, sleep, SHOT_DIR } from './lib.mjs';
+import { launchApp, widgetPage, quickAddPage, docWindows, typeInto, switchTab, seedData, readData, makeTask, mkDate, sleep, SHOT_DIR } from './lib.mjs';
 
 const results = [];
 const check = (name, pass, detail) => { results.push({ name, pass }); console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' :: ' + detail : ''}`); };
@@ -264,26 +264,13 @@ check('검색 해제하면 칩이 사라짐',
 
 // ── 4.7) 전화 아이콘 · 빠른 등록 · 단축키 ──────────────────────
 
-const phone = phonePage(app2);
-check('전화 아이콘이 떠 있음', !!phone, `창 ${app2.windows().length}개`);
-
-const hk = await app2.evaluate(({ app }) => null).then(() => main2.evaluate(() =>
-  require('electron').ipcRenderer.invoke('get-hotkey')));
+const hk = await main2.evaluate(() => require('electron').ipcRenderer.invoke('get-hotkey'));
 check('기본 단축키가 F4 로 등록됨', hk.accel === 'F4', `accel=${hk.accel}`);
 
-// 작게 움직이면 클릭 = 빠른 등록 창이 열려야 한다 (5px 임계값)
-if (phone) {
-  await phone.evaluate(() => {
-    const b = document.getElementById('btn');
-    const mk = (type, sx, sy) => new PointerEvent(type, { pointerId: 1, button: 0, bubbles: true, screenX: sx, screenY: sy });
-    b.dispatchEvent(mk('pointerdown', 500, 500));
-    b.dispatchEvent(mk('pointermove', 502, 501));
-    b.dispatchEvent(mk('pointerup',   502, 501));
-  });
-  await sleep(2500);
-}
+await main2.evaluate(() => require('electron').ipcRenderer.send('open-quick-add'));
+await sleep(2500);
 const qa = quickAddPage(app2);
-check('아이콘을 클릭하면 빠른 등록 창이 뜸', !!qa);
+check('빠른 등록 창이 열림', !!qa);
 
 if (qa) {
   await qa.waitForSelector('#qName', { timeout: 10_000 });
@@ -320,32 +307,25 @@ if (qa) {
   check('빠른 등록 창도 중복 번호를 잡음',
     await qa.evaluate(() => document.getElementById('dup').style.display === 'block'));
 
+  // 업무 탭: 내용 + 마감기한(기본 오늘)
+  await qa.evaluate(() => switchMode('task'));
+  await sleep(300);
+  check('업무 탭의 마감기한 기본값이 오늘',
+    (await qa.evaluate(() => document.getElementById('tDue').value)) === mkDate(0));
+  const tasksBefore = readData(dataFile).tasks.length;
+  await typeInto(qa, '#tContent', '빠른등록 업무', 10);
+  await qa.evaluate(() => save());
+  await sleep(900);
+  const tasksAfter = readData(dataFile).tasks;
+  check('빠른 등록 창에서 업무가 추가됨',
+    tasksAfter.length === tasksBefore + 1 && tasksAfter.some(t => t.content === '빠른등록 업무'),
+    `${tasksBefore}건 → ${tasksAfter.length}건`);
+  check('추가된 업무의 마감기한이 오늘',
+    tasksAfter.find(t => t.content === '빠른등록 업무')?.dueDate === mkDate(0));
+
   await qa.evaluate(() => closeSelf());
   await sleep(800);
   check('Esc/닫기로 빠른 등록 창이 닫힘', !quickAddPage(app2));
-}
-
-// 크게 끌면 이동 = 위치가 저장되어야 한다
-if (phone) {
-  const before = await app2.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('phone.html')).getPosition());
-  await phone.evaluate(() => {
-    const b = document.getElementById('btn');
-    const mk = (type, sx, sy) => new PointerEvent(type, { pointerId: 1, button: 0, bubbles: true, screenX: sx, screenY: sy });
-    b.dispatchEvent(mk('pointerdown', 500, 500));
-    b.dispatchEvent(mk('pointermove', 460, 540));
-    b.dispatchEvent(mk('pointerup',   460, 540));
-  });
-  await sleep(900);
-  const moved = await app2.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('phone.html')).getPosition());
-  check('끌면 아이콘이 이동함', moved[0] !== before[0] || moved[1] !== before[1],
-    `${before} → ${moved}`);
-  check('이동한 위치가 저장됨(모니터 정보 포함)', (() => {
-    const s = readData(dataFile).settings?.phoneIcon;
-    return s && s.x === moved[0] && s.y === moved[1] && typeof s.displayId === 'number';
-  })(), `settings=${JSON.stringify(readData(dataFile).settings?.phoneIcon)}`);
-  check('끌기는 빠른 등록 창을 열지 않음', !quickAddPage(app2));
 }
 
 // 불러오기 병합: 같은 번호면 기록만 합치고 새 사람은 추가

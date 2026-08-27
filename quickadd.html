@@ -10,22 +10,32 @@
             height: 100%; box-sizing: border-box;
             background: #fff; border: 1px solid #cfd8dd; border-radius: 10px;
             box-shadow: 0 8px 26px rgba(0,0,0,0.28);
-            padding: 14px 16px; display: flex; flex-direction: column;
+            padding: 12px 16px 14px; display: flex; flex-direction: column;
         }
-        .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; -webkit-app-region: drag; }
-        .head h1 { margin: 0; font-size: 14px; color: #2c3e50; }
-        .head button { -webkit-app-region: no-drag; background: transparent; border: none; color: #95a5a6; font-size: 15px; cursor: pointer; padding: 0 2px; }
-        .head button:hover { color: #e74c3c; }
+        .head { display: flex; justify-content: space-between; align-items: center; -webkit-app-region: drag; margin-bottom: 8px; }
+        .tabs { display: flex; gap: 4px; -webkit-app-region: no-drag; }
+        .tab {
+            background: #eef2f5; color: #5b6b76; border: none; border-radius: 5px;
+            padding: 6px 14px; font-size: 12.5px; font-weight: bold; cursor: pointer;
+        }
+        .tab:hover { background: #e3e9ee; }
+        .tab.active { background: #2c3e50; color: #fff; }
+        .head button.close { -webkit-app-region: no-drag; background: transparent; border: none; color: #95a5a6; font-size: 15px; cursor: pointer; }
+        .head button.close:hover { color: #e74c3c; }
+
         .row { display: flex; gap: 6px; margin-bottom: 8px; }
         input {
             padding: 9px 10px; border: 1px solid #ccc; border-radius: 4px;
             font-size: 14px; font-family: inherit; box-sizing: border-box;
         }
         input:focus { outline: none; border-color: #3498db; }
-        #qName  { width: 108px; }
-        #qPhone { width: 148px; font-family: 'Consolas', monospace; }
+        #qName  { width: 106px; }
+        #qPhone { width: 146px; font-family: 'Consolas', monospace; }
         #qMemo  { flex: 1; min-width: 0; }
-        .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+        #tContent { flex: 1; min-width: 0; }
+        #tDue { width: 150px; font-family: 'Consolas', monospace; }
+
+        .actions { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
         .hint { font-size: 11px; color: #95a5a6; }
         .save { background: #2ecc71; color: #fff; border: none; border-radius: 4px; padding: 8px 18px; font-size: 13px; font-weight: bold; cursor: pointer; }
         .save:hover { background: #27ae60; }
@@ -35,21 +45,34 @@
         }
         .dup button { background: #f39c12; color: #fff; border: none; border-radius: 3px; padding: 2px 8px; font-size: 11px; font-weight: bold; cursor: pointer; margin-left: 6px; }
         .toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(44,62,80,0.95); color: #fff; padding: 7px 16px; border-radius: 16px; font-size: 12px; font-weight: bold; display: none; }
+        .pane { display: none; }
+        .pane.active { display: block; }
     </style>
 </head>
 <body>
     <div class="panel">
         <div class="head">
-            <h1>📞 빠른 등록</h1>
-            <button onclick="closeSelf()" title="닫기 (Esc)">✖</button>
+            <div class="tabs">
+                <button class="tab active" id="tabContact" onclick="switchMode('contact')">📇 연락처</button>
+                <button class="tab" id="tabTask" onclick="switchMode('task')">✅ 업무</button>
+            </div>
+            <button class="close" onclick="closeSelf()" title="닫기 (Esc)">✖</button>
         </div>
 
-        <div id="dup" class="dup"></div>
+        <div class="pane active" id="paneContact">
+            <div id="dup" class="dup"></div>
+            <div class="row">
+                <input type="text" id="qName" placeholder="이름">
+                <input type="text" id="qPhone" placeholder="전화번호">
+                <input type="text" id="qMemo" placeholder="메모">
+            </div>
+        </div>
 
-        <div class="row">
-            <input type="text" id="qName" placeholder="이름">
-            <input type="text" id="qPhone" placeholder="전화번호">
-            <input type="text" id="qMemo" placeholder="메모">
+        <div class="pane" id="paneTask">
+            <div class="row">
+                <input type="text" id="tContent" placeholder="업무 내용">
+                <input type="date" id="tDue">
+            </div>
         </div>
 
         <div class="actions">
@@ -64,11 +87,17 @@
         const { ipcRenderer } = require('electron');
 
         let contacts = [];
+        let mode = 'contact';
 
         const $ = id => document.getElementById(id);
         const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
             ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
         const normalizePhone = v => String(v == null ? '' : v).replace(/[^0-9]/g, '');
+
+        function todayStr() {
+            const d = new Date(), p = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+        }
 
         function formatPhone(v) {
             const d = normalizePhone(v);
@@ -92,6 +121,16 @@
             toastTimer = setTimeout(() => { el.style.display = 'none'; }, 1600);
         }
 
+        function switchMode(m) {
+            mode = m;
+            $('tabContact').classList.toggle('active', m === 'contact');
+            $('tabTask').classList.toggle('active', m === 'task');
+            $('paneContact').classList.toggle('active', m === 'contact');
+            $('paneTask').classList.toggle('active', m === 'task');
+            if (m === 'contact') $('qName').focus();
+            else { if (!$('tDue').value) $('tDue').value = todayStr(); $('tContent').focus(); }
+        }
+
         async function loadContacts() {
             const doc = await ipcRenderer.invoke('load-data');
             contacts = (doc && Array.isArray(doc.contacts)) ? doc.contacts : [];
@@ -101,7 +140,6 @@
             if (patch && Array.isArray(patch.contacts)) contacts = patch.contacts;
         });
 
-        // 창이 다시 열릴 때마다 비우고 이름부터
         ipcRenderer.on('quick-add-reset', () => {
             clearFields();
             loadContacts();
@@ -111,8 +149,10 @@
             $('qName').value = '';
             $('qPhone').value = '';
             $('qMemo').value = '';
+            $('tContent').value = '';
+            $('tDue').value = todayStr();     // 마감기한 기본값은 오늘
             $('dup').style.display = 'none';
-            $('qName').focus();
+            if (mode === 'contact') $('qName').focus(); else $('tContent').focus();
         }
 
         function closeSelf() { ipcRenderer.send('close-quick-add'); }
@@ -149,7 +189,7 @@
             }
         }
 
-        async function save() {
+        async function saveContact() {
             const name = $('qName').value.trim();
             const digits = normalizePhone($('qPhone').value);
             const memo = $('qMemo').value.trim();
@@ -161,22 +201,39 @@
             if (res && res.ok) {
                 contacts = res.contacts;
                 showToast((name || formatPhone(digits) || '연락처') + ' 등록됨');
-                clearFields();   // 창은 닫지 않는다. 한 통화에 두 명을 받아적는 경우가 있다.
+                clearFields();
             }
         }
 
+        async function saveTask() {
+            const content = $('tContent').value.trim();
+            if (!content) { showToast('업무 내용을 적어주세요'); $('tContent').focus(); return; }
+
+            const res = await ipcRenderer.invoke('add-task', { content: content, dueDate: $('tDue').value });
+            if (res && res.ok) {
+                showToast('업무 등록됨 (' + res.count + '건)');
+                clearFields();
+            }
+        }
+
+        function save() { mode === 'contact' ? saveContact() : saveTask(); }
+
         $('qPhone').addEventListener('input', checkDuplicate);
 
-        ['qName', 'qPhone', 'qMemo'].forEach(id => {
+        ['qName', 'qPhone', 'qMemo', 'tContent', 'tDue'].forEach(id => {
             $(id).addEventListener('keydown', (e) => {
+                if (e.isComposing || e.keyCode === 229) return;   // 한글 조합 중엔 가로채지 않는다
                 if (e.key === 'Enter') { e.preventDefault(); save(); }
             });
         });
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeSelf();
+            // Ctrl+Tab 으로 연락처 ↔ 업무 전환
+            if (e.key === 'Tab' && e.ctrlKey) { e.preventDefault(); switchMode(mode === 'contact' ? 'task' : 'contact'); }
         });
 
+        $('tDue').value = todayStr();
         loadContacts().then(() => $('qName').focus());
     </script>
 </body>
