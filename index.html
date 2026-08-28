@@ -460,20 +460,19 @@
 
     <div class="header-container">
         <h1 style="margin: 0;">🚀 Task Manager</h1>
-        <button type="button" class="btn-new-task" style="background-color: #9b59b6;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
+        <button type="button" class="btn-new-task" style="background-color: #9b59b6; margin-left: auto;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
     </div>
 
     <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchTab(event, 'dashboard')">대시보드</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'brainstorm')">생각나는대로 적기</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">투두리스트</button>
+        <button type="button" class="tab-btn active" onclick="switchTab(event, 'dashboard')">📅 캘린더</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'brainstorm')">💡 메모장</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">✏️ TO DO</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'contacts')">📇 연락처</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 프로젝트</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'completed')">✅ 완료</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'phrases')">📋 문구 창고</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
     </div>
-    
+
     <div id="dashboard" class="tab-content active">
         <div class="calendar-header">
             <h2 id="calMonthText"></h2>
@@ -486,14 +485,15 @@
     </div>
 
     <div id="brainstorm" class="tab-content">
-        <h2>💡 생각나는대로 적기 (자유 메모장)</h2>
+        <h2>💡 메모장</h2>
         <textarea id="memoPad" placeholder="아이디어나 회의 내용, 낙서 등을 자유롭게 적어보세요. 입력 시 자동으로 저장됩니다."></textarea>
     </div>
 
     <div id="master" class="tab-content">
-        <h2>📋 투두리스트 (진행중인 전체 업무) <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</span></h2>
+        <h2>✏️ TO DO (진행중인 전체 업무) <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</span></h2>
 
         <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
+        <button type="button" class="btn-new-task" style="background-color:#7f8c8d;" onclick="toggleCompletedSection()" id="completedToggleBtn">✅ 완료된 업무 보기</button>
 
         <div class="form-container" id="taskFormContainer" style="display: none;">
             <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
@@ -544,6 +544,11 @@
         </div>
 
         <div class="table-responsive" id="masterTableContainer" style="margin-top: 15px;"></div>
+
+        <div id="completedSection" style="display: none; margin-top: 25px; padding-top: 20px; border-top: 2px solid #ecf0f1;">
+            <h2 style="margin-top: 0;">✅ 완료된 업무 모아보기</h2>
+            <div class="table-responsive" id="completedTableContainer"></div>
+        </div>
     </div>
 
     <div id="contacts" class="tab-content">
@@ -575,11 +580,6 @@
             </div>
             <div class="grid-wrap" id="gridWrap" tabindex="0"></div>
         </div>
-    </div>
-
-    <div id="completed" class="tab-content">
-        <h2>✅ 완료된 업무 모아보기</h2>
-        <div class="table-responsive" id="completedTableContainer"></div>
     </div>
 
     <div id="phrases" class="tab-content">
@@ -873,6 +873,14 @@
             } else {
                 formContainer.style.display = 'none';
             }
+        }
+
+        function toggleCompletedSection() {
+            const section = document.getElementById('completedSection');
+            const btn = document.getElementById('completedToggleBtn');
+            const showing = section.style.display !== 'none' && section.style.display !== '';
+            section.style.display = showing ? 'none' : 'block';
+            btn.innerText = showing ? '✅ 완료된 업무 보기' : '✅ 완료된 업무 숨기기';
         }
 
         let contextTargetId = null; 
