@@ -370,7 +370,7 @@
 
     <div id="colContextMenu" class="context-menu">
         <ul>
-            <li onclick="openColFilter(ctxCol)">▽ 필터</li>
+            <li onclick="event.stopPropagation(); openColFilter(ctxCol)">▽ 필터</li>
             <li onclick="toggleSort(ctxCol)">↕ 정렬 (오름/내림)</li>
             <li class="edit-btn" onclick="openColumnModal(ctxCol)">✏️ 열 편집</li>
             <li onclick="insertColumn(ctxCol, 'left')">⬅ 왼쪽에 열 추가</li>
