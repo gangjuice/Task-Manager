@@ -239,13 +239,13 @@ function openQuickAdd() {
         return;
     }
 
-    const W = 470, H = 236;
+    const W = 470, H = 280;
     // 마우스가 있는 화면에 띄운다. 모니터가 2대라 주 모니터 고정이면
     // 두 번째 화면에서 일하다가 시선을 옮겨야 한다.
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const b = display.workArea;
-    const x = Math.round(b.x + b.width - W - 40);
-    const y = Math.round(b.y + 60);
+    const x = Math.round(b.x + (b.width - W) / 2);
+    const y = Math.round(b.y + (b.height - H) / 2);
 
     quickAddWindow = new BrowserWindow({
         width: W, height: H, x: x, y: y,
@@ -283,7 +283,7 @@ function stamp() {
            'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
 
-ipcMain.handle('add-contact', (event, { name, phone, memo }) => {
+ipcMain.handle('add-contact', (event, { name, phone, memo, customerNo }) => {
     const doc = readDoc();
     const list = Array.isArray(doc.contacts) ? doc.contacts : [];
     const at = stamp();
@@ -291,7 +291,7 @@ ipcMain.handle('add-contact', (event, { name, phone, memo }) => {
 
     list.push({
         id: Date.now(),
-        name: name || '', title: '', org: '', email: '', tag: '',
+        name: name || '', title: '', org: '', email: '', customerNo: customerNo || '', tag: '',
         phones: digits ? [{ label: digits.startsWith('01') ? '휴대폰' : '사무실', value: digits }] : [],
         projects: [],
         notes: memo ? [{ at: at, text: memo }] : [],

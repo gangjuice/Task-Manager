@@ -31,6 +31,7 @@
         input:focus { outline: none; border-color: #3498db; }
         #qName  { width: 106px; }
         #qPhone { width: 146px; font-family: 'Consolas', monospace; }
+        #qCustomerNo { width: 130px; }
         #qMemo  { flex: 1; min-width: 0; }
         #tContent { flex: 1; min-width: 0; }
         #tDue { width: 150px; font-family: 'Consolas', monospace; }
@@ -64,6 +65,9 @@
             <div class="row">
                 <input type="text" id="qName" placeholder="이름">
                 <input type="text" id="qPhone" placeholder="전화번호">
+                <input type="text" id="qCustomerNo" placeholder="고객번호">
+            </div>
+            <div class="row">
                 <input type="text" id="qMemo" placeholder="메모">
             </div>
         </div>
@@ -149,6 +153,7 @@
         function clearFields() {
             $('qName').value = '';
             $('qPhone').value = '';
+            $('qCustomerNo').value = '';
             $('qMemo').value = '';
             $('tContent').value = '';
             $('tDue').value = todayStr();     // 마감기한 기본값은 오늘
@@ -193,12 +198,13 @@
         async function saveContact() {
             const name = $('qName').value.trim();
             const digits = normalizePhone($('qPhone').value);
+            const customerNo = $('qCustomerNo').value.trim();
             const memo = $('qMemo').value.trim();
 
             // 📌 필수값을 두지 않는다. 통화 중엔 이름만 듣거나 번호만 받는 경우가 있다.
-            if (!name && !digits && !memo) { showToast('한 칸이라도 채워주세요'); return; }
+            if (!name && !digits && !customerNo && !memo) { showToast('한 칸이라도 채워주세요'); return; }
 
-            const res = await ipcRenderer.invoke('add-contact', { name, phone: digits, memo });
+            const res = await ipcRenderer.invoke('add-contact', { name, phone: digits, memo, customerNo });
             if (res && res.ok) {
                 contacts = res.contacts;
                 showToast((name || formatPhone(digits) || '연락처') + ' 등록됨');
@@ -221,7 +227,7 @@
 
         $('qPhone').addEventListener('input', checkDuplicate);
 
-        ['qName', 'qPhone', 'qMemo', 'tContent', 'tDue'].forEach(id => {
+        ['qName', 'qPhone', 'qCustomerNo', 'qMemo', 'tContent', 'tDue'].forEach(id => {
             $(id).addEventListener('keydown', (e) => {
                 if (e.isComposing || e.keyCode === 229) return;   // 한글 조합 중엔 가로채지 않는다
                 if (e.key === 'Enter') { e.preventDefault(); save(); }
