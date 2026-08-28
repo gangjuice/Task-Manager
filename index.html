@@ -30,6 +30,7 @@
         th, td { border: 1px solid #ddd; padding: 10px; }
         th { background-color: #f8f9fa; color: #333; position: relative; }
         tr:hover { background-color: #f1f1f1; }
+        tr.hl-row td { background-color: #fff3b0; }
         th.sortable:hover { background-color: #e2e6ea; }
         .filter-icon { font-size: 10px; color: #3498db; margin-left: 5px; display: none; }
         .context-menu { display: none; position: absolute; z-index: 1000; background-color: #fff; border: 1px solid #ccc; border-radius: 5px; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); min-width: 130px; overflow: hidden; }
@@ -168,6 +169,7 @@
 
     <div id="rowContextMenu" class="context-menu">
         <ul>
+            <li id="rowHighlightItem" onclick="toggleRowHighlight()">🟡 하이라이트</li>
             <li class="edit-btn" onclick="openEditModal()">✏️ 수정하기</li>
             <li class="delete-btn" onclick="executeDelete()">🗑️ 삭제하기</li>
         </ul>
@@ -556,6 +558,10 @@
             </div>
         </div>
 
+        <input type="text" id="phraseSearch" placeholder="🔍 저장된 문구 검색"
+               oninput="renderPhrases()"
+               style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px; margin-bottom:14px;">
+
         <div id="phraseListContainer"></div>
     </div>
 
@@ -853,12 +859,32 @@
         const headerMenu = document.getElementById('headerContextMenu');
 
         function showRowMenu(e, id) {
-            e.preventDefault(); 
+            e.preventDefault();
             contextTargetId = id;
             headerMenu.style.display = 'none';
+
+            // 📌 행 하이라이트는 TO DO(진행중) 목록에서만 쓸 수 있다. 완료된 업무 줄엔 메뉴 자체를 숨긴다.
+            const task = tasks.find(t => t.id === id);
+            const hlItem = document.getElementById('rowHighlightItem');
+            if (task && task.status !== '완료됨') {
+                hlItem.style.display = 'block';
+                hlItem.innerText = task.highlight ? '⬜ 하이라이트 해제' : '🟡 하이라이트';
+            } else {
+                hlItem.style.display = 'none';
+            }
+
             rowMenu.style.display = 'block';
             rowMenu.style.left = e.pageX + 'px';
             rowMenu.style.top = e.pageY + 'px';
+        }
+
+        function toggleRowHighlight() {
+            if (!contextTargetId) return;
+            const task = tasks.find(t => t.id === contextTargetId);
+            if (task) {
+                task.highlight = !task.highlight;
+                updateAndSave();
+            }
         }
 
         function showHeaderMenu(e, tableId, colIndex) {
@@ -1053,7 +1079,7 @@
             dataList.forEach(t => {
                 const dDayInfo = getDdayInfo(t.dueDate);
                 html += `
-                    <tr oncontextmenu="showRowMenu(event, ${t.id})">
+                    <tr class="${t.highlight ? 'hl-row' : ''}" oncontextmenu="showRowMenu(event, ${t.id})">
                         <td>${t.regDate}</td>
                         <td>${t.dueDate || '-'}</td>
                         <td style="color: ${dDayInfo.color};"><b>${dDayInfo.text}</b></td>
@@ -1885,7 +1911,16 @@
                 return;
             }
 
-            const list = phrases.slice().sort((a, b) =>
+            const searchEl = qa('phraseSearch');
+            const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            const filtered = q ? phrases.filter(p => String(p.text || '').toLowerCase().includes(q)) : phrases;
+
+            if (!filtered.length) {
+                container.innerHTML = '<p class="contact-empty">검색 결과가 없습니다.</p>';
+                return;
+            }
+
+            const list = filtered.slice().sort((a, b) =>
                 (b.favorite - a.favorite) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 
             container.innerHTML = list.map(p =>
