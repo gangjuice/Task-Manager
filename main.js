@@ -67,14 +67,15 @@ function createTray() {
 }
 
 // 창을 닫았는데 앱이 안 꺼지면 사용자는 당황한다. 딱 한 번만 알려준다.
-function notifyTrayOnce() {
-    const doc = readDoc();
-    const settings = doc.settings || {};
-    if (settings.trayNoticeShown) return;
-
-    settings.trayNoticeShown = true;
-    doc.settings = settings;
-    writeDoc(doc);
+async function notifyTrayOnce() {
+    const shown = await withDoc(doc => {
+        const settings = doc.settings || {};
+        if (settings.trayNoticeShown) return true;
+        settings.trayNoticeShown = true;
+        doc.settings = settings;
+        return false;
+    });
+    if (shown) return;
 
     try {
         tray.displayBalloon({
@@ -146,41 +147,64 @@ ipcMain.on('set-always-on-top', (event, isTop) => {
 // 📌 데이터 파일은 여러 창이 함께 쓴다.
 // 각 창은 자기가 바꾼 섹션만 보내고(save-sections), 파일 병합은 여기 한 곳에서만 한다.
 // 창이 문서 전체를 통째로 써내면, 그 창이 들고 있던 낡은 값이 남의 데이터를 덮어쓴다.
-function readDoc() {
-    if (!fs.existsSync(dataFilePath)) return {};
-    const raw = fs.readFileSync(dataFilePath, 'utf8');
+//
+// 📌 읽기/쓰기는 전부 비동기(fs.promises)로 한다. Sync 버전을 쓰면 디스크가 느릴 때
+// (OneDrive 동기화, 백신 검사 등) 메인 프로세스의 UI 스레드가 그대로 멈춰서,
+// 그 순간 열려 있는 모든 창(메인·위젯·빠른 등록)의 키보드 입력이 간헐적으로 먹통이 된다.
+// 대신 저장 요청은 큐에 순서대로 태워서, 여러 창이 거의 동시에 저장해도 서로 덮어쓰지 않게 한다.
+async function readDoc() {
+    let raw;
+    try {
+        raw = await fs.promises.readFile(dataFilePath, 'utf8');
+    } catch (e) {
+        return {};   // 파일이 아직 없으면 빈 문서로 시작한다.
+    }
     try {
         const doc = JSON.parse(raw);
         return (doc && typeof doc === 'object') ? doc : {};
     } catch (e) {
         // 파일이 깨졌다면 덮어쓰기 전에 원본을 남긴다. 그냥 진행하면 전체 데이터가 사라진다.
-        try { fs.writeFileSync(dataFilePath.replace(/\.json$/, '') + '.손상됨.json', raw); } catch (e2) {}
+        try { await fs.promises.writeFile(dataFilePath.replace(/\.json$/, '') + '.손상됨.json', raw); } catch (e2) {}
         return {};
     }
 }
 
-function writeDoc(doc) {
+async function writeDoc(doc) {
     const json = JSON.stringify(doc, null, 2);
     const tmp = dataFilePath + '.tmp';
     try {
         // 임시 파일에 쓰고 바꿔치기한다. 쓰는 도중에 앱이 죽어도 원본이 남는다.
-        fs.writeFileSync(tmp, json);
-        fs.renameSync(tmp, dataFilePath);
+        await fs.promises.writeFile(tmp, json);
+        await fs.promises.rename(tmp, dataFilePath);
     } catch (e) {
         // OneDrive 등이 파일을 잠그면 rename이 실패할 수 있다. 그때는 직접 쓴다.
-        fs.writeFileSync(dataFilePath, json);
+        await fs.promises.writeFile(dataFilePath, json);
     }
+}
+
+// 📌 읽고-고치고-쓰는 한 사이클을 큐에 순서대로 태운다.
+// mutator(doc) 안에서 doc을 고치고, 필요하면 반환값을 돌려준다.
+let docQueue = Promise.resolve();
+function withDoc(mutator) {
+    const result = docQueue.then(async () => {
+        const doc = await readDoc();
+        const ret = await mutator(doc);
+        await writeDoc(doc);
+        return ret;
+    });
+    docQueue = result.then(() => {}, () => {});   // 하나 실패해도 큐는 계속 이어진다
+    return result;
 }
 
 ipcMain.handle('load-data', () => readDoc());
 
 // patch 예: { tasks: [...] } — 바뀐 섹션만 담긴 객체
-ipcMain.on('save-sections', (event, patch) => {
+ipcMain.on('save-sections', async (event, patch) => {
     if (!patch || typeof patch !== 'object') return;
 
-    const doc = readDoc();
-    Object.keys(patch).forEach(section => { doc[section] = patch[section]; });
-    writeDoc(doc);
+    await withDoc(doc => {
+        Object.keys(patch).forEach(section => { doc[section] = patch[section]; });
+    });
 
     // 📌 저장을 요청한 창은 이미 최신 상태이므로 제외한다.
     // (자기 자신에게 되돌아온 신호 때문에 저장할 때마다 화면이 한 번 더 그려지던 문제)
@@ -210,16 +234,16 @@ const DEFAULT_HOTKEY = 'F4';
 
 let quickAddWindow = null;
 
-function getSettings() {
-    const doc = readDoc();
+async function getSettings() {
+    const doc = await readDoc();
     return doc.settings || {};
 }
 
 function patchSettings(patch) {
-    const doc = readDoc();
-    doc.settings = Object.assign({}, doc.settings || {}, patch);
-    writeDoc(doc);
-    return doc.settings;
+    return withDoc(doc => {
+        doc.settings = Object.assign({}, doc.settings || {}, patch);
+        return doc.settings;
+    });
 }
 
 function openContactsTab() {
@@ -283,74 +307,79 @@ function stamp() {
            'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
 
-ipcMain.handle('add-contact', (event, { name, phone, memo, customerNo }) => {
-    const doc = readDoc();
-    const list = Array.isArray(doc.contacts) ? doc.contacts : [];
+ipcMain.handle('add-contact', async (event, { name, phone, memo, customerNo }) => {
     const at = stamp();
     const digits = String(phone || '').replace(/[^0-9]/g, '');
 
-    list.push({
-        id: Date.now(),
-        name: name || '', title: '', org: '', email: '', customerNo: customerNo || '', tag: '',
-        phones: digits ? [{ label: digits.startsWith('01') ? '휴대폰' : '사무실', value: digits }] : [],
-        projects: [],
-        notes: memo ? [{ at: at, text: memo }] : [],
-        createdAt: at.split('T')[0],
-        updatedAt: at,
-        lastNoteAt: memo ? at.split('T')[0] : ''
+    const list = await withDoc(doc => {
+        const list = Array.isArray(doc.contacts) ? doc.contacts : [];
+        list.push({
+            id: Date.now(),
+            name: name || '', title: '', org: '', email: '', customerNo: customerNo || '', tag: '',
+            phones: digits ? [{ label: digits.startsWith('01') ? '휴대폰' : '사무실', value: digits }] : [],
+            projects: [],
+            notes: memo ? [{ at: at, text: memo }] : [],
+            createdAt: at.split('T')[0],
+            updatedAt: at,
+            lastNoteAt: memo ? at.split('T')[0] : ''
+        });
+        doc.contacts = list;
+        return list;
     });
 
-    doc.contacts = list;
-    writeDoc(doc);
     broadcastSection('contacts', list, event.sender.id);
     return { ok: true, contacts: list };
 });
 
-ipcMain.handle('add-note', (event, { id, text }) => {
-    const doc = readDoc();
-    const list = Array.isArray(doc.contacts) ? doc.contacts : [];
-    const c = list.find(x => x.id === id);
-    if (!c) return { ok: false };
-
+ipcMain.handle('add-note', async (event, { id, text }) => {
     const at = stamp();
-    c.notes = c.notes || [];
-    c.notes.push({ at: at, text: text });
-    c.lastNoteAt = at.split('T')[0];
-    c.updatedAt = at;
 
-    doc.contacts = list;
-    writeDoc(doc);
-    broadcastSection('contacts', list, event.sender.id);
-    return { ok: true, contacts: list };
+    const result = await withDoc(doc => {
+        const list = Array.isArray(doc.contacts) ? doc.contacts : [];
+        const c = list.find(x => x.id === id);
+        if (!c) return { ok: false };
+
+        c.notes = c.notes || [];
+        c.notes.push({ at: at, text: text });
+        c.lastNoteAt = at.split('T')[0];
+        c.updatedAt = at;
+
+        doc.contacts = list;
+        return { ok: true, contacts: list };
+    });
+
+    if (result.ok) broadcastSection('contacts', result.contacts, event.sender.id);
+    return result;
 });
 
 // 업무도 같은 방식으로 덧붙인다.
-ipcMain.handle('add-task', (event, { content, dueDate }) => {
-    const doc = readDoc();
-    const tasks = Array.isArray(doc.tasks) ? doc.tasks : [];
-    const categories = (Array.isArray(doc.categories) && doc.categories.length)
-        ? doc.categories : ['기타'];
+ipcMain.handle('add-task', async (event, { content, dueDate }) => {
     const at = stamp();
 
-    tasks.push({
-        id: Date.now(),
-        regDate: at.split('T')[0],
-        dueDate: dueDate || '',
-        content: content || '',
-        // 메인 창의 신규 등록 폼과 같은 기본값. 나중에 마스터 리스트에서 고치면 된다.
-        category: categories.includes('기타') ? '기타' : categories[0],
-        firstAction: '',
-        importance: '높음',
-        urgency: '높음',
-        priority: 1,
-        timeReq: '',
-        status: '대기중',
-        remarks: '',
-        isTodayTask: false
+    const tasks = await withDoc(doc => {
+        const tasks = Array.isArray(doc.tasks) ? doc.tasks : [];
+        const categories = (Array.isArray(doc.categories) && doc.categories.length)
+            ? doc.categories : ['기타'];
+
+        tasks.push({
+            id: Date.now(),
+            regDate: at.split('T')[0],
+            dueDate: dueDate || '',
+            content: content || '',
+            // 메인 창의 신규 등록 폼과 같은 기본값. 나중에 투두리스트에서 고치면 된다.
+            category: categories.includes('기타') ? '기타' : categories[0],
+            firstAction: '',
+            importance: '높음',
+            urgency: '높음',
+            priority: 1,
+            timeReq: '',
+            status: '대기중',
+            remarks: ''
+        });
+        doc.tasks = tasks;
+        return tasks;
     });
 
-    doc.tasks = tasks;
-    writeDoc(doc);
     broadcastSection('tasks', tasks, event.sender.id);
     return { ok: true, count: tasks.length };
 });
@@ -371,8 +400,8 @@ function applyHotkey(accel) {
     }
 }
 
-function applyHotkeyFromSettings() {
-    const s = getSettings();
+async function applyHotkeyFromSettings() {
+    const s = await getSettings();
     const accel = s.hotkey === undefined ? DEFAULT_HOTKEY : s.hotkey;
     const res = applyHotkey(accel);
     if (!res.ok && accel && tray) {
@@ -387,15 +416,15 @@ function applyHotkeyFromSettings() {
     return res;
 }
 
-ipcMain.handle('get-hotkey', () => {
-    const s = getSettings();
+ipcMain.handle('get-hotkey', async () => {
+    const s = await getSettings();
     return { accel: s.hotkey === undefined ? DEFAULT_HOTKEY : s.hotkey };
 });
 
-ipcMain.handle('set-hotkey', (event, accel) => {
+ipcMain.handle('set-hotkey', async (event, accel) => {
     const res = applyHotkey(accel);
-    if (res.ok) patchSettings({ hotkey: accel });
-    else applyHotkeyFromSettings();   // 실패하면 원래 키로 되돌린다
+    if (res.ok) await patchSettings({ hotkey: accel });
+    else await applyHotkeyFromSettings();   // 실패하면 원래 키로 되돌린다
     return res;
 });
 
