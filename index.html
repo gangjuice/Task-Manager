@@ -140,10 +140,6 @@
         table.grid td.rownum:active { cursor: grabbing; }
         table.grid td.rownum.drag-over { box-shadow: inset 0 3px 0 #2980b9; }
         table.grid thead th.rownum { z-index: 3; }
-        table.grid th.hl-col { background: #fff3b0; }
-        table.grid td.cell.hl-col { background: #fff8d6; }
-        table.grid tr:hover td.cell.hl-col:not(.sel) { background: #fff3b0; }
-        table.grid td.cell.hl-col.sel { background: #fde98a; }
         table.grid td.cell {
             padding: 6px 10px; max-width: 260px; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis; cursor: cell; background: #fff;
@@ -367,7 +363,6 @@
         <ul>
             <li onclick="event.stopPropagation(); openColFilter(ctxCol)">▽ 필터</li>
             <li onclick="toggleSort(ctxCol)">↕ 정렬 (오름/내림)</li>
-            <li id="colHighlightItem" onclick="toggleColHighlight(ctxCol)">🟡 하이라이트</li>
             <li class="edit-btn" onclick="openColumnModal(ctxCol)">✏️ 열 편집</li>
             <li onclick="insertColumn(ctxCol, 'left')">⬅ 왼쪽에 열 추가</li>
             <li onclick="insertColumn(ctxCol, 'right')">➡ 오른쪽에 열 추가</li>
@@ -530,7 +525,7 @@
     </div>
 
     <div id="sheets" class="tab-content">
-        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 좌클릭: 정렬 / 우클릭: 필터·하이라이트·열 편집 / 행 번호 드래그: 순서 변경 / 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
+        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 좌클릭: 정렬 / 우클릭: 필터·열 편집 / 행 번호 드래그: 순서 변경 / 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -2756,25 +2751,10 @@
             lastMenuX = e.pageX; lastMenuY = e.pageY;
             hideSheetMenus();
 
-            const s = curSheet();
-            const col = s && s.columns[index];
-            document.getElementById('colHighlightItem').innerText =
-                (col && col.highlight) ? '⬜ 하이라이트 해제' : '🟡 하이라이트';
-
             const m = document.getElementById('colContextMenu');
             m.style.display = 'block';
             m.style.left = e.pageX + 'px';
             m.style.top = e.pageY + 'px';
-        }
-
-        function toggleColHighlight(colIndex) {
-            const s = curSheet();
-            const col = s && s.columns[colIndex];
-            if (!col) return;
-            pushUndo();
-            col.highlight = !col.highlight;
-            renderGrid();
-            saveSheets();
         }
 
         function showRowMenu2(e, displayIndex) {
@@ -3204,8 +3184,7 @@
             s.columns.forEach((col, i) => {
                 const sorted = sheetSort && sheetSort.colIndex === i;
                 const filtered = sheetFilters[col.id] !== undefined;
-                html += '<th class="' + (col.highlight ? 'hl-col' : '') + '"' +
-                        ' onclick="toggleSort(' + i + ')" oncontextmenu="showColMenu(event, ' + i + ')"' +
+                html += '<th onclick="toggleSort(' + i + ')" oncontextmenu="showColMenu(event, ' + i + ')"' +
                         ' title="좌클릭: 정렬 ↕ / 우클릭: 필터·열 편집">' +
                         esc(col.name) +
                         (sorted ? '<span class="sort-mark">' + (sheetSort.dir === 'asc' ? '▲' : '▼') + '</span>' : '') +
@@ -3224,7 +3203,6 @@
                     const cls = ['cell'];
                     if (col.type === 'number') cls.push('num');
                     if (col.type === 'check') cls.push('chk');
-                    if (col.highlight) cls.push('hl-col');
                     if (inSel(dr, c)) cls.push('sel');
                     if (isAnchor(dr, c)) cls.push('anchor');
                     const raw = row.cells[col.id];
