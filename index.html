@@ -93,17 +93,18 @@
         .note-text { font-size: 14px; white-space: pre-wrap; margin-top: 5px; line-height: 1.5; }
         .note-edit { width: 100%; min-height: 70px; font-family: inherit; font-size: 14px; padding: 8px; border: 1px solid #3498db; border-radius: 4px; box-sizing: border-box; }
         .note-scroll { max-height: 300px; overflow-y: auto; padding-right: 4px; }
+        /* ── 문구 창고 ── */
+        .phrase-item { background: #f8f9fa; border-left: 3px solid #3498db; padding: 9px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0; display: flex; gap: 10px; align-items: flex-start; }
+        .phrase-item.fav { border-left-color: #f39c12; background: #fffaf0; }
+        .phrase-star { background: transparent; border: none; font-size: 18px; padding: 0 2px; cursor: pointer; line-height: 1; color: #dcdde1; }
+        .phrase-star.on { color: #f39c12; }
+        .phrase-body { flex: 1; min-width: 0; }
+        .phrase-text { font-size: 14px; white-space: pre-wrap; line-height: 1.5; }
+        .phrase-meta { font-size: 11px; color: #7f8c8d; font-weight: bold; margin-top: 6px; }
+        .phrase-actions { display: flex; flex-direction: column; gap: 4px; }
         .color-dot { width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; vertical-align: middle; margin-right: 8px; background: none; }
         .use-count { font-size: 11px; color: #7f8c8d; background: #ecf0f1; padding: 1px 7px; border-radius: 8px; margin-left: 6px; }
-        /* ── 빠른 입력 · 검색 ── */
-        .quick-add { display: flex; gap: 6px; flex: 1; min-width: 320px; align-items: center; }
-        .quick-add input { padding: 9px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit; }
-        #qa_name  { width: 110px; }
-        #qa_phone { width: 140px; font-family: 'Consolas', monospace; }
-        #qa_memo  { flex: 1; min-width: 140px; }
-        .btn-quick-add { background-color: #2ecc71; padding: 9px 16px; font-size: 13px; white-space: nowrap; }
-        .btn-quick-add:hover { background-color: #27ae60; }
-        .quick-add-hint { font-size: 12px; color: #95a5a6; margin: 0 0 10px; }
+        /* ── 검색 ── */
         .search-chip { display: inline-flex; align-items: center; gap: 8px; background: #eaf4fb; border: 1px solid #3498db; color: #21618c; border-radius: 14px; padding: 4px 6px 4px 14px; font-size: 13px; font-weight: bold; margin-bottom: 12px; }
         .search-chip button { background: #3498db; color: #fff; border: none; border-radius: 10px; padding: 2px 9px; font-size: 11px; cursor: pointer; }
         .search-chip button:hover { background: #2980b9; }
@@ -131,9 +132,17 @@
         table.grid td.rownum, table.grid th.rownum {
             position: sticky; left: 0; z-index: 1;
             background: #f4f7f9; color: #9fb0bc; text-align: center; font-size: 11px;
-            width: 42px; min-width: 42px; padding: 6px 4px; cursor: context-menu;
+            width: 42px; min-width: 42px; padding: 6px 4px;
         }
+        table.grid th.rownum { cursor: context-menu; }
+        table.grid td.rownum { cursor: grab; }
+        table.grid td.rownum:active { cursor: grabbing; }
+        table.grid td.rownum.drag-over { box-shadow: inset 0 3px 0 #2980b9; }
         table.grid thead th.rownum { z-index: 3; }
+        table.grid th.hl-col { background: #fff3b0; }
+        table.grid td.cell.hl-col { background: #fff8d6; }
+        table.grid tr:hover td.cell.hl-col:not(.sel) { background: #fff3b0; }
+        table.grid td.cell.hl-col.sel { background: #fde98a; }
         table.grid td.cell {
             padding: 6px 10px; max-width: 260px; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis; cursor: cell; background: #fff;
@@ -372,6 +381,7 @@
         <ul>
             <li onclick="event.stopPropagation(); openColFilter(ctxCol)">▽ 필터</li>
             <li onclick="toggleSort(ctxCol)">↕ 정렬 (오름/내림)</li>
+            <li id="colHighlightItem" onclick="toggleColHighlight(ctxCol)">🟡 하이라이트</li>
             <li class="edit-btn" onclick="openColumnModal(ctxCol)">✏️ 열 편집</li>
             <li onclick="insertColumn(ctxCol, 'left')">⬅ 왼쪽에 열 추가</li>
             <li onclick="insertColumn(ctxCol, 'right')">➡ 오른쪽에 열 추가</li>
@@ -460,6 +470,7 @@
         <button type="button" class="tab-btn" onclick="switchTab(event, 'contacts')">📇 연락처</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 프로젝트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'completed')">✅ 완료</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'phrases')">📋 문구 창고</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
     </div>
     
@@ -539,30 +550,18 @@
         <h2>📇 업무용 연락처 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·삭제 / 열 제목 우클릭: 필터</span></h2>
 
         <div class="contact-toolbar">
-            <div class="quick-add">
-                <input type="text" id="qa_name" placeholder="이름"
-                       onkeydown="if(event.key==='Enter') quickAddContact()">
-                <input type="text" id="qa_phone" placeholder="전화번호"
-                       oninput="checkQuickDuplicate()"
-                       onkeydown="if(event.key==='Enter') quickAddContact()">
-                <input type="text" id="qa_memo" placeholder="메모"
-                       onkeydown="if(event.key==='Enter') quickAddContact()">
-                <button type="button" class="btn-quick-add" onclick="quickAddContact()">빠른 등록</button>
-            </div>
             <span class="contact-count" id="contactCount">0명</span>
             <button type="button" class="btn-new-task" style="background-color: #3498db;" onclick="openSearchPopup()">🔍 검색</button>
             <button type="button" class="btn-new-task" onclick="openContactForm(null)">➕ 새 연락처</button>
         </div>
 
-        <div id="qa_dupWarn" class="dup-warn"></div>
-        <p class="quick-add-hint">세 칸 중 아무거나 채우고 Enter — 통화하면서 바로 남기세요. 자세한 정보는 나중에 “새 연락처”나 수정으로 채우면 됩니다.</p>
         <div id="searchChip" class="search-chip" style="display: none;"></div>
 
         <div class="table-responsive" id="contactTableContainer"></div>
     </div>
 
     <div id="sheets" class="tab-content">
-        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 좌클릭: 정렬 / 우클릭: 필터·열 편집 / 행 번호 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
+        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 좌클릭: 정렬 / 우클릭: 필터·하이라이트·열 편집 / 행 번호 드래그: 순서 변경 / 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -581,6 +580,21 @@
     <div id="completed" class="tab-content">
         <h2>✅ 완료된 업무 모아보기</h2>
         <div class="table-responsive" id="completedTableContainer"></div>
+    </div>
+
+    <div id="phrases" class="tab-content">
+        <h2>📋 반복 문구 창고 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 자주 쓰는 문구를 저장해두고 복사해서 씁니다</span></h2>
+
+        <div style="background:#f4f7f6; border-radius:6px; padding:12px; margin-bottom:16px;">
+            <textarea id="phraseInput" style="width:100%; height:64px; box-sizing:border-box; resize:vertical; font-family:inherit; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:4px;"
+                      placeholder="자주 쓰는 문구를 적으세요. Ctrl+Enter로 바로 저장됩니다."
+                      onkeydown="if(event.key==='Enter' && (event.ctrlKey||event.metaKey)) addPhrase();"></textarea>
+            <div style="text-align:right; margin-top:6px;">
+                <button type="button" style="background:#2ecc71; padding:6px 16px; font-size:13px;" onclick="addPhrase()">문구 저장</button>
+            </div>
+        </div>
+
+        <div id="phraseListContainer"></div>
     </div>
 
     <div id="settings" class="tab-content">
@@ -731,6 +745,10 @@
                     renderContacts();
                     renderSettingLists();
                 }
+                if (parsed.phrases) {
+                    phrases = parsed.phrases;
+                    renderPhrases();
+                }
                 // 메모만 바뀐 경우에는 표와 달력을 다시 그릴 이유가 없다.
                 if (parsed.tasks || parsed.categories) {
                     if (parsed.tasks) tasks = parsed.tasks;
@@ -761,6 +779,7 @@
                 if (Array.isArray(doc.tags) && doc.tags.length) tags = doc.tags;
                 if (Array.isArray(doc.orgs)) orgs = doc.orgs;
                 if (Array.isArray(doc.projects)) projects = doc.projects;
+                if (Array.isArray(doc.phrases)) phrases = doc.phrases;
                 if (Array.isArray(doc.sheets)) sheets = doc.sheets;
                 if (sheets.length) activeSheetId = sheets[0].id;
             }
@@ -775,6 +794,7 @@
             renderContacts();
             renderSettingLists();
             renderSheets();
+            renderPhrases();
             loadHotkeySettings();
         }
 
@@ -1382,6 +1402,7 @@
         ];
         let orgs = [];
         let projects = [];
+        let phrases = [];
 
         let contactSearchText = '';
         let contactContextId = null;
@@ -1866,6 +1887,78 @@
             }).catch(() => {});
         }
 
+        // ══════════════════════════════════════════════════════════════
+        // 반복 문구 창고
+        // ══════════════════════════════════════════════════════════════
+
+        function savePhrases() {
+            saveSections({ phrases: phrases });
+            renderPhrases();
+        }
+
+        function addPhrase() {
+            const input = qa('phraseInput');
+            const text = input.value.trim();
+            if (!text) { showToast('문구를 입력해주세요'); return; }
+
+            phrases.push({
+                id: Date.now(),
+                text: text,
+                favorite: false,
+                createdAt: nowStamp().split('T')[0]
+            });
+
+            input.value = '';
+            savePhrases();
+            showToast('문구가 저장되었습니다');
+        }
+
+        function togglePhraseFavorite(id) {
+            const p = phrases.find(x => x.id === id);
+            if (!p) return;
+            p.favorite = !p.favorite;
+            savePhrases();
+        }
+
+        function deletePhrase(id) {
+            if (!confirm('이 문구를 삭제하시겠습니까?')) return;
+            phrases = phrases.filter(x => x.id !== id);
+            savePhrases();
+        }
+
+        function copyPhrase(id, btn) {
+            const p = phrases.find(x => x.id === id);
+            if (p) copyText(p.text, btn);
+        }
+
+        function renderPhrases() {
+            const container = qa('phraseListContainer');
+            if (!container) return;
+
+            if (!phrases.length) {
+                container.innerHTML = '<p class="contact-empty">아직 저장된 문구가 없습니다. 위 칸에 적고 “문구 저장”을 눌러보세요.</p>';
+                return;
+            }
+
+            const list = phrases.slice().sort((a, b) =>
+                (b.favorite - a.favorite) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+            container.innerHTML = list.map(p =>
+                '<div class="phrase-item' + (p.favorite ? ' fav' : '') + '">' +
+                    '<button type="button" class="phrase-star' + (p.favorite ? ' on' : '') + '"' +
+                        ' onclick="togglePhraseFavorite(' + p.id + ')" title="즐겨찾기">' + (p.favorite ? '★' : '☆') + '</button>' +
+                    '<div class="phrase-body">' +
+                        '<div class="phrase-text">' + esc(p.text) + '</div>' +
+                        '<div class="phrase-meta">' + esc(p.createdAt || '-') + ' 등록</div>' +
+                    '</div>' +
+                    '<div class="phrase-actions">' +
+                        '<button type="button" class="btn-inline primary" onclick="copyPhrase(' + p.id + ', this)">복사</button>' +
+                        '<button type="button" class="btn-inline danger" onclick="deletePhrase(' + p.id + ')">삭제</button>' +
+                    '</div>' +
+                '</div>'
+            ).join('');
+        }
+
         // ── 설정: 구분 / 소속 / 프로젝트 목록 관리 ────────────────────
 
         function listOf(kind) {
@@ -2021,79 +2114,7 @@
         }
 
 
-        // ── 빠른 입력 (이름 · 전화번호 · 메모) ────────────────────────
-
         function qa(id) { return document.getElementById(id); }
-
-        function clearQuickAdd() {
-            qa('qa_name').value = '';
-            qa('qa_phone').value = '';
-            qa('qa_memo').value = '';
-            qa('qa_dupWarn').style.display = 'none';
-            qa('qa_name').focus();
-        }
-
-        function quickAddContact() {
-            const name = qa('qa_name').value.trim();
-            const digits = normalizePhone(qa('qa_phone').value);
-            const memo = qa('qa_memo').value.trim();
-
-            // 📌 필수값을 두지 않는다. 통화 중엔 이름만 듣거나 번호만 받는 경우가 있다.
-            if (!name && !digits && !memo) {
-                showToast('이름 · 전화번호 · 메모 중 하나는 채워주세요');
-                return;
-            }
-
-            const stamp = nowStamp();
-            contacts.push({
-                id: Date.now(),
-                name: name, title: '', org: '', email: '', tag: '',
-                // 01x 로 시작하면 휴대폰, 아니면 사무실. 02-555-1234 를 휴대폰이라 적어두면 어색하다.
-                phones: digits ? [{ label: digits.startsWith('01') ? '휴대폰' : '사무실', value: digits }] : [],
-                projects: [],
-                notes: memo ? [{ at: stamp, text: memo }] : [],
-                createdAt: stamp.split('T')[0],
-                updatedAt: stamp,
-                lastNoteAt: memo ? stamp.split('T')[0] : ''
-            });
-
-            saveContacts();
-            showToast((name || formatPhone(digits) || '연락처') + ' 등록됨');
-            clearQuickAdd();   // 📌 창을 닫지 않는다. 한 통화에 두 명을 받아적는 경우가 있다.
-        }
-
-        // 📌 번호를 치는 동안 이미 있는 사람인지 알려준다.
-        function checkQuickDuplicate() {
-            const warn = qa('qa_dupWarn');
-            const digits = normalizePhone(qa('qa_phone').value);
-            if (digits.length < 8) { warn.style.display = 'none'; return; }
-
-            const hit = contacts.find(c => (c.phones || []).some(p => normalizePhone(p.value) === digits));
-            if (!hit) { warn.style.display = 'none'; return; }
-
-            warn.style.display = 'block';
-            warn.innerHTML = '⚠️ 이미 있는 번호입니다 — <b>' + (esc(hit.name) || '이름 없음') + '</b>' +
-                (hit.org ? ' (' + esc(hit.org) + ')' : '') +
-                ' <button type="button" class="btn-inline" onclick="quickAddToExisting(' + hit.id + ')">이 사람에게 기록 추가</button>';
-        }
-
-        function quickAddToExisting(id) {
-            const c = contacts.find(x => x.id === id);
-            if (!c) return;
-
-            const memo = qa('qa_memo').value.trim();
-            if (!memo) { clearQuickAdd(); openContactDetail(id); return; }
-
-            const stamp = nowStamp();
-            c.notes = c.notes || [];
-            c.notes.push({ at: stamp, text: memo });
-            c.lastNoteAt = stamp.split('T')[0];
-            c.updatedAt = stamp;
-
-            saveContacts();
-            showToast((c.name || '연락처') + '에 기록 추가됨');
-            clearQuickAdd();
-        }
 
         // ── 검색 팝업 ─────────────────────────────────────────────────
 
@@ -2754,10 +2775,26 @@
             ctxCol = index;
             lastMenuX = e.pageX; lastMenuY = e.pageY;
             hideSheetMenus();
+
+            const s = curSheet();
+            const col = s && s.columns[index];
+            document.getElementById('colHighlightItem').innerText =
+                (col && col.highlight) ? '⬜ 하이라이트 해제' : '🟡 하이라이트';
+
             const m = document.getElementById('colContextMenu');
             m.style.display = 'block';
             m.style.left = e.pageX + 'px';
             m.style.top = e.pageY + 'px';
+        }
+
+        function toggleColHighlight(colIndex) {
+            const s = curSheet();
+            const col = s && s.columns[colIndex];
+            if (!col) return;
+            pushUndo();
+            col.highlight = !col.highlight;
+            renderGrid();
+            saveSheets();
         }
 
         function showRowMenu2(e, displayIndex) {
@@ -2783,6 +2820,60 @@
             });
         }
         window.addEventListener('click', hideSheetMenus);
+
+        // ── 행 번호 드래그로 순서 바꾸기 ──────────────────────────────
+
+        let dragSrcDr = null;
+
+        function rowDragStart(e, dr) {
+            dragSrcDr = dr;
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function rowDragOver(e, dr) {
+            if (dragSrcDr === null) return;
+            e.preventDefault();
+            if (dr !== dragSrcDr) e.currentTarget.classList.add('drag-over');
+        }
+
+        function rowDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function rowDrop(e, dr) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            if (dragSrcDr === null || dr === dragSrcDr) return;
+            reorderRow(dragSrcDr, dr);
+            dragSrcDr = null;
+        }
+
+        function rowDragEnd() {
+            dragSrcDr = null;
+        }
+
+        // 📌 정렬 중에는 화면 순서와 실제 데이터 순서가 다르다.
+        // 드래그로 순서를 정한다는 건 "이제부터 이 순서로 보겠다"는 뜻이므로 정렬은 해제한다.
+        function reorderRow(fromDr, toDr) {
+            const s = curSheet();
+            if (!s) return;
+            const rows = s.rows;
+            const movedRow = rows[realRow(fromDr)];
+            const targetRow = rows[realRow(toDr)];
+            if (!movedRow || !targetRow) return;
+
+            pushUndo();
+            const movingDown = realRow(fromDr) < realRow(toDr);
+            rows.splice(rows.indexOf(movedRow), 1);
+            let insertAt = rows.indexOf(targetRow);
+            if (movingDown) insertAt += 1;
+            rows.splice(insertAt, 0, movedRow);
+
+            sheetSort = null;
+            sel = null;
+            renderGrid();
+            saveSheets();
+        }
 
         // ── 선택 · 입력 ───────────────────────────────────────────────
 
@@ -3133,7 +3224,8 @@
             s.columns.forEach((col, i) => {
                 const sorted = sheetSort && sheetSort.colIndex === i;
                 const filtered = sheetFilters[col.id] !== undefined;
-                html += '<th onclick="toggleSort(' + i + ')" oncontextmenu="showColMenu(event, ' + i + ')"' +
+                html += '<th class="' + (col.highlight ? 'hl-col' : '') + '"' +
+                        ' onclick="toggleSort(' + i + ')" oncontextmenu="showColMenu(event, ' + i + ')"' +
                         ' title="좌클릭: 정렬 ↕ / 우클릭: 필터·열 편집">' +
                         esc(col.name) +
                         (sorted ? '<span class="sort-mark">' + (sheetSort.dir === 'asc' ? '▲' : '▼') + '</span>' : '') +
@@ -3144,11 +3236,15 @@
 
             curView.forEach((real, dr) => {
                 const row = s.rows[real];
-                html += '<tr><td class="rownum" oncontextmenu="showRowMenu2(event, ' + dr + ')">' + (real + 1) + '</td>';
+                html += '<tr><td class="rownum" draggable="true" oncontextmenu="showRowMenu2(event, ' + dr + ')"' +
+                        ' ondragstart="rowDragStart(event, ' + dr + ')" ondragover="rowDragOver(event, ' + dr + ')"' +
+                        ' ondragleave="rowDragLeave(event)" ondrop="rowDrop(event, ' + dr + ')" ondragend="rowDragEnd()"' +
+                        '>' + (real + 1) + '</td>';
                 s.columns.forEach((col, c) => {
                     const cls = ['cell'];
                     if (col.type === 'number') cls.push('num');
                     if (col.type === 'check') cls.push('chk');
+                    if (col.highlight) cls.push('hl-col');
                     if (inSel(dr, c)) cls.push('sel');
                     if (isAnchor(dr, c)) cls.push('anchor');
                     const raw = row.cells[col.id];
