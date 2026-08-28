@@ -128,7 +128,6 @@
             background: #f4f7f9; color: #33424d; font-size: 12px; font-weight: bold;
             padding: 8px 10px; white-space: nowrap; cursor: context-menu; text-align: left;
         }
-        table.grid thead th .coltype { color: #9fb0bc; font-weight: normal; margin-left: 5px; font-size: 11px; }
         table.grid td.rownum, table.grid th.rownum {
             position: sticky; left: 0; z-index: 1;
             background: #f4f7f9; color: #9fb0bc; text-align: center; font-size: 11px;
@@ -270,6 +269,11 @@
                         <button type="button" style="background:#3498db;" onclick="addDraftProject()">추가</button>
                     </div>
                     <div class="chip-list" id="cf_projectChips"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>고객번호</label>
+                    <input type="text" id="cf_customerNo" placeholder="ex) 1234567890">
                 </div>
 
                 <div class="form-group full-width" id="cf_firstNoteRow">
@@ -446,63 +450,13 @@
 
     <div class="header-container">
         <h1 style="margin: 0;">🚀 Task Manager</h1>
-        <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
         <button type="button" class="btn-new-task" style="background-color: #9b59b6;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
-    </div>
-
-    <div class="form-container" id="taskFormContainer" style="display: none;">
-        <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
-        <h2 style="margin-top: 0; margin-bottom: 20px; color: #2c3e50;">📝 신규 업무 입력</h2>
-        <form id="taskForm" class="form-grid">
-            <div class="form-group full-width">
-                <label for="content">업무 내용</label>
-                <input type="text" id="content" required placeholder="해야 할 업무를 간략히 입력하세요">
-            </div>
-            <div class="form-group">
-                <label for="dueDate">마감기한</label>
-                <input type="date" id="dueDate">
-            </div>
-            <div class="form-group">
-                <label for="category">분류</label>
-                <select id="category"></select>
-            </div>
-            <div class="form-group">
-                <label for="firstAction">가장 작은 첫 행동</label>
-                <input type="text" id="firstAction" placeholder="ex) 담당자 연락처 검색">
-            </div>
-            <div class="form-group">
-                <label for="timeReq">소요 시간</label>
-                <input type="text" id="timeReq" placeholder="ex) 30분, 2시간">
-            </div>
-            <div class="form-group">
-                <label for="importance">중요도</label>
-                <select id="importance">
-                    <option value="높음">높음</option>
-                    <option value="낮음">낮음</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="urgency">긴급도</label>
-                <select id="urgency">
-                    <option value="높음">높음</option>
-                    <option value="낮음">낮음</option>
-                </select>
-            </div>
-            <div class="form-group full-width">
-                <label for="remarks">비고</label>
-                <input type="text" id="remarks" placeholder="기타 참고사항">
-            </div>
-            <div class="form-group full-width" style="display: flex; justify-content: flex-end;">
-                <button type="submit" style="width: 200px; background-color: #2c3e50;">✔ 등록 완료하기</button>
-            </div>
-        </form>
     </div>
 
     <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchTab(event, 'dashboard')">대시보드</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'brainstorm')">생각나는대로 적기</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">마스터 리스트</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'today')">오늘 할 일</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">투두리스트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'contacts')">📇 연락처</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 프로젝트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'completed')">✅ 완료</button>
@@ -526,13 +480,59 @@
     </div>
 
     <div id="master" class="tab-content">
-        <h2>📋 마스터 리스트 (진행중인 전체 업무) <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</span></h2>
-        <div class="table-responsive" id="masterTableContainer"></div>
-    </div>
+        <h2>📋 투두리스트 (진행중인 전체 업무) <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</span></h2>
 
-    <div id="today" class="tab-content">
-        <h2>🔥 오늘 할 일 (마스터 리스트에서 체크한 항목)</h2>
-        <div class="table-responsive" id="todayTableContainer"></div>
+        <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
+
+        <div class="form-container" id="taskFormContainer" style="display: none;">
+            <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
+            <h2 style="margin-top: 0; margin-bottom: 20px; color: #2c3e50;">📝 신규 업무 입력</h2>
+            <form id="taskForm" class="form-grid">
+                <div class="form-group full-width">
+                    <label for="content">업무 내용</label>
+                    <input type="text" id="content" required placeholder="해야 할 업무를 간략히 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label for="dueDate">마감기한</label>
+                    <input type="date" id="dueDate">
+                </div>
+                <div class="form-group">
+                    <label for="category">분류</label>
+                    <select id="category"></select>
+                </div>
+                <div class="form-group">
+                    <label for="firstAction">가장 작은 첫 행동</label>
+                    <input type="text" id="firstAction" placeholder="ex) 담당자 연락처 검색">
+                </div>
+                <div class="form-group">
+                    <label for="timeReq">소요 시간</label>
+                    <input type="text" id="timeReq" placeholder="ex) 30분, 2시간">
+                </div>
+                <div class="form-group">
+                    <label for="importance">중요도</label>
+                    <select id="importance">
+                        <option value="높음">높음</option>
+                        <option value="낮음">낮음</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="urgency">긴급도</label>
+                    <select id="urgency">
+                        <option value="높음">높음</option>
+                        <option value="낮음">낮음</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label for="remarks">비고</label>
+                    <input type="text" id="remarks" placeholder="기타 참고사항">
+                </div>
+                <div class="form-group full-width" style="display: flex; justify-content: flex-end;">
+                    <button type="submit" style="width: 200px; background-color: #2c3e50;">✔ 등록 완료하기</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive" id="masterTableContainer" style="margin-top: 15px;"></div>
     </div>
 
     <div id="contacts" class="tab-content">
@@ -562,7 +562,7 @@
     </div>
 
     <div id="sheets" class="tab-content">
-        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 열 편집 / 행 번호 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
+        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 좌클릭: 정렬 / 우클릭: 필터·열 편집 / 행 번호 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -700,7 +700,7 @@
         let savedMemo = "";
         
         let currentDate = new Date(); 
-        let activeFilters = { masterTable: {}, todayTable: {}, completedTable: {}, contactTable: {} };
+        let activeFilters = { masterTable: {}, completedTable: {}, contactTable: {} };
 
         // 다른 창이 바꾼 섹션만 도착한다. 없는 섹션은 건드리지 않는다.
         ipcRenderer.on('sync-sections', (event, patch) => {
@@ -1005,7 +1005,6 @@
             const task = tasks.find(t => t.id === id);
             if(task) {
                 task.status = '완료됨';
-                task.isTodayTask = false; 
                 updateAndSave();
             }
         }
@@ -1042,10 +1041,9 @@
             rows.forEach(row => tbody.appendChild(row));
         }
 
-        function generateTableHTML(dataList, showCheckbox = false, tableId, isCompletedTab = false) {
+        function generateTableHTML(dataList, tableId, isCompletedTab = false) {
             if(dataList.length === 0) return "<p style='padding: 10px; color:#7f8c8d;'>해당되는 업무가 없습니다.</p>";
-            
-            let cOffset = showCheckbox ? 1 : 0; 
+
             let cols = [
                 { name: "등록일", w: "80px" },
                 { name: "마감기한", w: "100px" },
@@ -1064,11 +1062,10 @@
             <table id="${tableId}">
                 <thead>
                     <tr>
-                        ${showCheckbox ? `<th style="width:40px;">오늘할일</th>` : ''}
                         ${cols.map((c, i) => `
-                            <th class="sortable" style="cursor:pointer; width:${c.w};" 
-                                onclick="sortTableDOM('${tableId}', ${i + cOffset})" 
-                                oncontextmenu="showHeaderMenu(event, '${tableId}', ${i + cOffset})"
+                            <th class="sortable" style="cursor:pointer; width:${c.w};"
+                                onclick="sortTableDOM('${tableId}', ${i})"
+                                oncontextmenu="showHeaderMenu(event, '${tableId}', ${i})"
                                 title="좌클릭: 정렬 ↕ / 우클릭: 필터 ▽">
                                 ${c.name} <span class="filter-icon">▼</span>
                             </th>`).join('')}
@@ -1076,12 +1073,11 @@
                     </tr>
                 </thead>
                 <tbody>`;
-            
+
             dataList.forEach(t => {
                 const dDayInfo = getDdayInfo(t.dueDate);
                 html += `
                     <tr oncontextmenu="showRowMenu(event, ${t.id})">
-                        ${showCheckbox ? `<td><input type="checkbox" onchange="toggleTodayTask(${t.id}, this)" ${t.isTodayTask ? 'checked' : ''}></td>` : ''}
                         <td>${t.regDate}</td>
                         <td>${t.dueDate || '-'}</td>
                         <td style="color: ${dDayInfo.color};"><b>${dDayInfo.text}</b></td>
@@ -1121,13 +1117,11 @@
 
             let activeTasks = sortedTasks.filter(t => t.status !== '완료됨');
             let completedTasks = sortedTasks.filter(t => t.status === '완료됨');
-            let todayTasks = activeTasks.filter(t => t.isTodayTask);
 
-            document.getElementById('masterTableContainer').innerHTML = generateTableHTML(activeTasks, true, 'masterTable', false);
-            document.getElementById('todayTableContainer').innerHTML = generateTableHTML(todayTasks, false, 'todayTable', false);
-            document.getElementById('completedTableContainer').innerHTML = generateTableHTML(completedTasks, false, 'completedTable', true);
+            document.getElementById('masterTableContainer').innerHTML = generateTableHTML(activeTasks, 'masterTable', false);
+            document.getElementById('completedTableContainer').innerHTML = generateTableHTML(completedTasks, 'completedTable', true);
 
-            ['masterTable', 'todayTable', 'completedTable'].forEach(tableId => {
+            ['masterTable', 'completedTable'].forEach(tableId => {
                 const table = document.getElementById(tableId);
                 if(table && activeFilters[tableId]) {
                     const rows = table.querySelectorAll("tbody tr");
@@ -1167,9 +1161,8 @@
                 urgency: urg,
                 priority: getPriority(imp, urg),
                 timeReq: document.getElementById('timeReq').value,
-                status: '대기중', 
-                remarks: document.getElementById('remarks').value,
-                isTodayTask: false 
+                status: '대기중',
+                remarks: document.getElementById('remarks').value
             };
 
             tasks.push(newTask);
@@ -1186,14 +1179,6 @@
             
             toggleTaskForm();
         });
-
-        function toggleTodayTask(id, checkboxEl) {
-            const task = tasks.find(t => t.id === id);
-            if(task) {
-                task.isTodayTask = checkboxEl.checked;
-                updateAndSave(); 
-            }
-        }
 
         function switchTab(evt, tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -1488,7 +1473,7 @@
 
         function matchesSearch(c, q, qDigits) {
             if (!q) return true;
-            const hay = [c.name, c.title, c.org, c.tag, c.email, (c.projects || []).join(' ')]
+            const hay = [c.name, c.title, c.org, c.tag, c.email, c.customerNo, (c.projects || []).join(' ')]
                 .filter(Boolean).join(' ').toLowerCase();
             if (hay.includes(q)) return true;
             if (qDigits && (c.phones || []).some(p => normalizePhone(p.value).includes(qDigits))) return true;
@@ -1518,7 +1503,7 @@
                 return;
             }
 
-            const cols = ['이름', '직함', '소속', '구분', '연락처', '관련 프로젝트', '마지막 기록', '경과'];
+            const cols = ['이름', '직함', '소속', '구분', '연락처', '관련 프로젝트', '고객번호', '마지막 기록', '경과'];
             let html = '<table id="contactTable"><thead><tr>' +
                 cols.map((name, i) =>
                     '<th class="sortable" style="cursor:pointer;"' +
@@ -1542,6 +1527,7 @@
                     '<td>' + (c.tag ? '<span class="tag-badge" style="background:' + tagColor(c.tag) + '">' + esc(c.tag) + '</span>' : '-') + '</td>' +
                     '<td style="text-align:left;">' + phones + '</td>' +
                     '<td style="text-align:left;">' + (esc((c.projects || []).join(', ')) || '-') + '</td>' +
+                    '<td>' + (esc(c.customerNo) || '-') + '</td>' +
                     '<td>' + esc(String(c.lastNoteAt || c.createdAt || '-').split('T')[0]) + '</td>' +
                     '<td' + stale + '>' + elapsed + '</td>' +
                     '</tr>';
@@ -1586,6 +1572,7 @@
             document.getElementById('cf_title').value = c ? (c.title || '') : '';
             document.getElementById('cf_org').value   = c ? (c.org   || '') : '';
             document.getElementById('cf_email').value = c ? (c.email || '') : '';
+            document.getElementById('cf_customerNo').value = c ? (c.customerNo || '') : '';
 
             const tagSel = document.getElementById('cf_tag');
             tagSel.innerHTML = '<option value="">(없음)</option>' +
@@ -1698,6 +1685,7 @@
             const title = document.getElementById('cf_title').value.trim();
             const org   = document.getElementById('cf_org').value.trim();
             const email = document.getElementById('cf_email').value.trim();
+            const customerNo = document.getElementById('cf_customerNo').value.trim();
             const tag   = document.getElementById('cf_tag').value;
             const phones = draftPhones
                 .filter(p => normalizePhone(p.value))
@@ -1717,7 +1705,7 @@
                 if (c) {
                     // 📌 이름 오타를 고쳐도 lastNoteAt 은 건드리지 않는다.
                     // 그래야 "마지막으로 함께 일한 날"이 정리 기준으로 남는다.
-                    Object.assign(c, { name, title, org, email, tag, phones, projects: draftProjects.slice() });
+                    Object.assign(c, { name, title, org, email, customerNo, tag, phones, projects: draftProjects.slice() });
                     c.updatedAt = nowStamp();
                 }
             } else {
@@ -1725,7 +1713,7 @@
                 const firstNote = document.getElementById('cf_firstNote').value.trim();
                 contacts.push({
                     id: Date.now(),
-                    name, title, org, email, tag, phones,
+                    name, title, org, email, customerNo, tag, phones,
                     projects: draftProjects.slice(),
                     notes: firstNote ? [{ at: stamp, text: firstNote }] : [],
                     createdAt: stamp.split('T')[0],
@@ -1773,6 +1761,7 @@
             if (c.email) rows.push(['이메일', esc(c.email) +
                 '<button type="button" class="btn-inline" onclick="copyText(\'' + esc(c.email) + '\', this)">복사</button>']);
             if ((c.projects || []).length) rows.push(['관련 프로젝트', esc(c.projects.join(', '))]);
+            if (c.customerNo) rows.push(['고객번호', esc(c.customerNo)]);
             rows.push(['등록일', esc(c.createdAt || '-')]);
 
             document.getElementById('cd_info').innerHTML = rows.map(r =>
@@ -2339,7 +2328,6 @@
         let sheetFilters = {};   // { colId: '값' }
         let curView = [];        // 화면 줄 번호 → 실제 행 번호
 
-        const TYPE_LABEL = { text: '텍스트', number: '숫자', date: '날짜', select: '선택', check: '체크' };
         const TYPED_IN_CELL = { text: 1, number: 1, date: 1 };
 
         const SHEET_TEMPLATE = [
@@ -3150,7 +3138,7 @@
                         esc(col.name) +
                         (sorted ? '<span class="sort-mark">' + (sheetSort.dir === 'asc' ? '▲' : '▼') + '</span>' : '') +
                         (filtered ? '<span class="filter-mark">▽</span>' : '') +
-                        '<span class="coltype">' + (TYPE_LABEL[col.type] || '') + '</span></th>';
+                        '</th>';
             });
             html += '</tr></thead><tbody>';
 
