@@ -183,6 +183,74 @@
         .cal-legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: #7f8c8d; }
         .cal-legend span.key { display: inline-flex; align-items: center; gap: 5px; }
         .cal-swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+        /* ══════════════════════════════════════════════════════════
+           디자인 토큰 — 색과 크기는 여기서만 정한다.
+           HTML 안에 style="background-color:..." 를 다시 심지 말 것.
+           ══════════════════════════════════════════════════════════ */
+        :root {
+            --c-primary: #2ecc71;  --c-primary-dark: #27ae60;
+            --c-accent:  #3498db;  --c-accent-dark:  #2980b9;
+            --c-danger:  #e74c3c;  --c-danger-dark:  #c0392b;
+
+            --c-ink: #2c3e50;  --c-ink-soft: #5b6b76;  --c-ink-faint: #95a5a6;
+            --c-line: #dfe4e8; --c-line-strong: #c8d1d8;
+            --c-surface: #fff; --c-ground: #f4f7f6;
+
+            /* 글자 3단계 + 표/보조 */
+            --fs-title: 19px; --fs-sub: 15px; --fs-body: 14px;
+            --fs-table: 13px; --fs-small: 12px;
+
+            /* 여백은 4의 배수만 */
+            --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+            --radius: 5px;
+        }
+
+        /* ── 버튼: 역할 4개 ──────────────────────────────────────────
+           주요(초록) : 그 화면에서 제일 자주 하는 일. 화면당 하나.
+           보조(테두리): 나머지 대부분
+           연한(투명) : 취소 · 되돌리기 · 끄기
+           위험(빨강) : 삭제 · 초기화
+           ────────────────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 9px 16px; border: 1px solid transparent; border-radius: var(--radius);
+            font-size: 13.5px; font-weight: bold; font-family: inherit; line-height: 1.2;
+            cursor: pointer; transition: background-color .15s, border-color .15s, color .15s;
+        }
+        .btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+        .btn-primary   { background: var(--c-primary); color: #fff; }
+        .btn-primary:hover { background: var(--c-primary-dark); }
+
+        .btn-secondary { background: var(--c-surface); color: var(--c-ink); border-color: var(--c-line-strong); }
+        .btn-secondary:hover { background: #f1f5f7; border-color: #b3bfc8; }
+
+        .btn-ghost     { background: transparent; color: var(--c-ink-soft); }
+        .btn-ghost:hover { background: #eaeff2; color: var(--c-ink); }
+
+        .btn-danger    { background: var(--c-danger); color: #fff; }
+        .btn-danger:hover { background: var(--c-danger-dark); }
+
+        .btn.btn-sm    { padding: 6px 12px; font-size: 12.5px; }
+        .btn.btn-block { width: 100%; }
+
+        /* 예전 이름들 — JS 안에서 만들어지는 버튼이 아직 쓰고 있어 같은 모양으로 맞춘다 */
+        .btn-new-task {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 9px 16px; border: 1px solid transparent; border-radius: var(--radius);
+            background: var(--c-primary); color: #fff;
+            font-size: 13.5px; font-weight: bold; font-family: inherit; line-height: 1.2;
+            cursor: pointer; box-shadow: none;
+        }
+        .btn-new-task:hover { background: var(--c-primary-dark); }
+
+        /* ── 글자 크기 3단계 ── */
+        h1 { font-size: 22px; }
+        h2 { font-size: var(--fs-title); }
+        h3 { font-size: var(--fs-sub); }
+        .setting-section h3 { font-size: var(--fs-sub); }
+        label { font-size: var(--fs-small); }
+        table { font-size: var(--fs-table); }
     </style>
 </head>
 <body>
@@ -223,8 +291,8 @@
                     <input type="text" id="edit_remarks">
                 </div>
                 <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeEditModal()">취소</button>
-                    <button type="button" style="background:#2ecc71; width:150px;" onclick="saveEditedTask()">저장하기</button>
+                    <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeEditModal()">취소</button>
+                    <button class="btn btn-primary" type="button" style="width:150px" onclick="saveEditedTask()">저장하기</button>
                 </div>
             </div>
         </div>
@@ -281,7 +349,7 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <input type="text" id="cf_projectInput" list="projectOptions" placeholder="고르거나 새로 입력 후 Enter" style="flex: 1;"
                                onkeydown="if(event.key==='Enter'){ event.preventDefault(); addDraftProject(); }">
-                        <button type="button" style="background:#3498db;" onclick="addDraftProject()">추가</button>
+                        <button class="btn btn-secondary" type="button" onclick="addDraftProject()">추가</button>
                     </div>
                     <div class="chip-list" id="cf_projectChips"></div>
                 </div>
@@ -297,8 +365,8 @@
                 </div>
 
                 <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeContactForm()">취소</button>
-                    <button type="button" style="background:#2ecc71; width:150px;" onclick="saveContactForm()">저장하기</button>
+                    <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeContactForm()">취소</button>
+                    <button class="btn btn-primary" type="button" style="width:150px" onclick="saveContactForm()">저장하기</button>
                 </div>
             </div>
         </div>
@@ -322,7 +390,7 @@
                           placeholder="통화 내용을 적으세요. Ctrl+Enter로 바로 저장됩니다."
                           onkeydown="if(event.key==='Enter' && (event.ctrlKey||event.metaKey)) addContactNote();"></textarea>
                 <div style="text-align:right; margin-top:6px;">
-                    <button type="button" style="background:#2ecc71; padding:6px 16px; font-size:13px;" onclick="addContactNote()">기록 남기기</button>
+                    <button class="btn btn-primary" type="button" style="padding:6px 16px; font-size:13px" onclick="addContactNote()">기록 남기기</button>
                 </div>
             </div>
 
@@ -353,13 +421,13 @@
             </div>
             <p id="ci_message" style="font-size: 14px; line-height: 1.6; margin: 0 0 18px;"></p>
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button type="button" style="background:#2ecc71;" onclick="runImport('merge')">
+                <button class="btn btn-primary" type="button" onclick="runImport('merge')">
                     합치기 <span style="font-weight:normal; font-size:12px;">— 같은 번호는 기록만 합치고, 나머지는 그대로 둡니다</span>
                 </button>
-                <button type="button" style="background:#e74c3c;" onclick="runImport('replace')">
+                <button class="btn btn-danger" type="button" onclick="runImport('replace')">
                     통째로 바꾸기 <span style="font-weight:normal; font-size:12px;">— 지금 연락처를 모두 지웁니다</span>
                 </button>
-                <button type="button" style="background:#7f8c8d;" onclick="closeImportModal()">취소</button>
+                <button class="btn btn-ghost" type="button" onclick="closeImportModal()">취소</button>
             </div>
         </div>
     </div>
@@ -373,8 +441,8 @@
             <p id="ld_message" style="font-size: 14px; line-height: 1.6; margin: 0 0 14px;"></p>
             <select id="ld_target" style="width: 100%; margin-bottom: 16px;"></select>
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeListDeleteModal()">취소</button>
-                <button type="button" style="background:#e74c3c; width:150px;" onclick="confirmDeleteListItem()">삭제하기</button>
+                <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeListDeleteModal()">취소</button>
+                <button class="btn btn-danger" type="button" style="width:150px" onclick="confirmDeleteListItem()">삭제하기</button>
             </div>
         </div>
     </div>
@@ -420,15 +488,15 @@
                        onkeydown="if(event.key==='Enter') createSheet('template')">
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button type="button" style="background:#2ecc71;" onclick="createSheet('template')">
+                <button class="btn btn-primary" type="button" onclick="createSheet('template')">
                     전기사용신청 기본 서식으로 시작
                     <span style="font-weight:normal; font-size:12px;">— 고객번호 · 현장명 · 계약전력 · 접수일 · 진행상태 …</span>
                 </button>
-                <button type="button" style="background:#3498db;" onclick="createSheet('empty')">
+                <button class="btn btn-secondary" type="button" onclick="createSheet('empty')">
                     빈 표로 시작
                     <span style="font-weight:normal; font-size:12px;">— 엑셀에서 헤더째 붙여넣으면 열이 자동으로 만들어집니다</span>
                 </button>
-                <button type="button" style="background:#7f8c8d;" onclick="closeNewSheet()">취소</button>
+                <button class="btn btn-ghost" type="button" onclick="closeNewSheet()">취소</button>
             </div>
         </div>
     </div>
@@ -460,8 +528,8 @@
                     <button type="button" class="btn-inline" style="align-self:flex-start; margin-top:4px;" onclick="addColOption()">+ 항목 추가</button>
                 </div>
                 <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeColumnModal()">취소</button>
-                    <button type="button" style="background:#2ecc71; width:140px;" onclick="saveColumn()">저장</button>
+                    <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeColumnModal()">취소</button>
+                    <button class="btn btn-primary" type="button" style="width:140px" onclick="saveColumn()">저장</button>
                 </div>
             </div>
         </div>
@@ -501,10 +569,10 @@
                     <textarea id="ev_memo" style="height:70px; resize:vertical;" placeholder="자세한 내용"></textarea>
                 </div>
                 <div class="form-group full-width" style="display:flex; justify-content:space-between; gap:10px;">
-                    <button type="button" id="ev_deleteBtn" style="background:#e74c3c; width:100px; display:none;" onclick="deleteEvent()">삭제</button>
+                    <button class="btn btn-danger" type="button" id="ev_deleteBtn" style="width:100px; display:none" onclick="deleteEvent()">삭제</button>
                     <span style="flex:1;"></span>
-                    <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeEventModal()">취소</button>
-                    <button type="button" style="background:#2ecc71; width:140px;" onclick="saveEvent()">저장하기</button>
+                    <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeEventModal()">취소</button>
+                    <button class="btn btn-primary" type="button" style="width:140px" onclick="saveEvent()">저장하기</button>
                 </div>
             </div>
         </div>
@@ -512,7 +580,7 @@
 
     <div class="header-container">
         <h1 style="margin: 0;">🚀 Task Manager</h1>
-        <button type="button" class="btn-new-task" style="background-color: #9b59b6; margin-left: auto;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
+        <button type="button" class="btn btn-secondary" style="margin-left: auto" onclick="openWidget()">📅 달력 위젯 띄우기</button>
     </div>
 
     <div class="tabs">
@@ -533,10 +601,10 @@
                     <span class="key"><i class="cal-swatch" style="background:#2E86C1;"></i> 업무</span>
                     <span class="key"><i class="cal-swatch" style="background:#FDF1E3; border-left:3px solid #E67E22;"></i> 일정</span>
                 </span>
-                <button type="button" onclick="changeMonth(-1)">◀ 이전 달</button>
-                <button type="button" onclick="goToday()" style="background:#7f8c8d;">오늘</button>
-                <button type="button" onclick="changeMonth(1)">다음 달 ▶</button>
-                <button type="button" class="btn-new-task" onclick="openEventModal(null)">➕ 일정 추가</button>
+                <button class="btn btn-secondary" type="button" onclick="changeMonth(-1)">◀ 이전 달</button>
+                <button class="btn btn-secondary" type="button" onclick="goToday()">오늘</button>
+                <button class="btn btn-secondary" type="button" onclick="changeMonth(1)">다음 달 ▶</button>
+                <button type="button" class="btn btn-primary" onclick="openEventModal(null)">➕ 일정 추가</button>
             </div>
         </div>
         <p style="font-size:12px; color:#95a5a6; margin:0 0 10px;">💡 날짜 칸 우클릭: 그 날짜에 일정 추가 / 일정 클릭: 수정</p>
@@ -551,8 +619,8 @@
     <div id="master" class="tab-content">
         <h2>✏️ TO DO (진행중인 전체 업무) <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</span></h2>
 
-        <button type="button" class="btn-new-task" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
-        <button type="button" class="btn-new-task" style="background-color:#7f8c8d;" onclick="toggleCompletedSection()" id="completedToggleBtn">✅ 완료된 업무 보기</button>
+        <button type="button" class="btn btn-primary" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
+        <button type="button" class="btn btn-secondary" onclick="toggleCompletedSection()" id="completedToggleBtn">✅ 완료된 업무 보기</button>
 
         <div class="form-container" id="taskFormContainer" style="display: none;">
             <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
@@ -575,7 +643,7 @@
                     <input type="text" id="remarks" placeholder="기타 참고사항">
                 </div>
                 <div class="form-group full-width" style="display: flex; justify-content: flex-end;">
-                    <button type="submit" style="width: 200px; background-color: #2c3e50;">✔ 등록 완료하기</button>
+                    <button class="btn btn-primary" type="submit" style="width: 200px">✔ 등록 완료하기</button>
                 </div>
             </form>
         </div>
@@ -593,8 +661,8 @@
 
         <div class="contact-toolbar">
             <span class="contact-count" id="contactCount">0명</span>
-            <button type="button" class="btn-new-task" style="background-color: #3498db;" onclick="openSearchPopup()">🔍 검색</button>
-            <button type="button" class="btn-new-task" onclick="openContactForm(null)">➕ 새 연락처</button>
+            <button type="button" class="btn btn-secondary" onclick="openSearchPopup()">🔍 검색</button>
+            <button type="button" class="btn btn-primary" onclick="openContactForm(null)">➕ 새 연락처</button>
         </div>
 
         <div id="searchChip" class="search-chip" style="display: none;"></div>
@@ -609,10 +677,10 @@
 
         <div id="sheetBody">
             <div class="sheet-toolbar" id="sheetToolbar">
-                <button type="button" class="btn-new-task btn-sm" onclick="addSheetRow()">➕ 행 추가</button>
-                <button type="button" class="btn-new-task btn-sm" style="background-color:#3498db;" onclick="openColumnModal(null)">➕ 열 추가</button>
-                <button type="button" class="btn-sm" style="background-color:#7f8c8d;" onclick="undoSheet()">↩ 되돌리기</button>
-                <button type="button" class="btn-sm" style="background-color:#7f8c8d;" onclick="redoSheet()">↪ 다시</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="addSheetRow()">➕ 행 추가</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openColumnModal(null)">➕ 열 추가</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="undoSheet()">↩ 되돌리기</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="redoSheet()">↪ 다시</button>
                 <span class="sheet-hint" id="sheetHint"></span>
             </div>
             <div class="grid-wrap" id="gridWrap" tabindex="0"></div>
@@ -627,7 +695,7 @@
                       placeholder="자주 쓰는 문구를 적으세요. Ctrl+Enter로 바로 저장됩니다."
                       onkeydown="if(event.key==='Enter' && (event.ctrlKey||event.metaKey)) addPhrase();"></textarea>
             <div style="text-align:right; margin-top:6px;">
-                <button type="button" style="background:#2ecc71; padding:6px 16px; font-size:13px;" onclick="addPhrase()">문구 저장</button>
+                <button class="btn btn-primary" type="button" style="padding:6px 16px; font-size:13px" onclick="addPhrase()">문구 저장</button>
             </div>
         </div>
 
@@ -665,7 +733,7 @@
             <h3>🏷️ 분류(Category) 관리</h3>
             <div style="margin-bottom: 15px; display: flex; gap: 10px;">
                 <input type="text" id="newCategoryInput" placeholder="새로운 분류명 입력" style="width: 250px;">
-                <button type="button" onclick="addCategory()" style="background-color: #2ecc71;">추가</button>
+                <button class="btn btn-primary" type="button" onclick="addCategory()">추가</button>
             </div>
             <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
             <ul class="setting-list" id="categoryListContainer"></ul>
@@ -682,8 +750,8 @@
 
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <input type="text" id="hotkeyInput" placeholder="F4" style="width: 160px; font-family: 'Consolas', monospace;">
-                <button type="button" style="background-color: #2ecc71;" onclick="applyHotkey()">적용</button>
-                <button type="button" style="background-color: #7f8c8d;" onclick="disableHotkey()">단축키 끄기</button>
+                <button class="btn btn-primary" type="button" onclick="applyHotkey()">적용</button>
+                <button class="btn btn-secondary" type="button" onclick="disableHotkey()">단축키 끄기</button>
                 <span style="font-size: 12px; color: #95a5a6;">예: F4 · ScrollLock · Ctrl+Alt+1</span>
             </div>
             <div id="hotkeyStatus" style="font-size: 13px; margin-top: 10px;"></div>
@@ -696,10 +764,10 @@
                 ※ 내보낸 파일에는 연락처와 기록이 그대로 들어 있습니다. 개인정보이므로 파일 보관에 주의하세요.
             </p>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <button type="button" onclick="exportContacts()" style="background-color: #f39c12;">📤 연락처만 내보내기</button>
+                <button class="btn btn-secondary" type="button" onclick="exportContacts()">📤 연락처만 내보내기</button>
                 <span style="color: #ccc;">|</span>
                 <input type="file" id="importContactsInput" accept=".json" style="display: none;" onchange="importContacts(event)">
-                <button type="button" onclick="document.getElementById('importContactsInput').click()" style="background-color: #9b59b6;">📥 연락처 불러오기</button>
+                <button class="btn btn-secondary" type="button" onclick="document.getElementById('importContactsInput').click()">📥 연락처 불러오기</button>
             </div>
         </div>
 
@@ -716,7 +784,7 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                         <input type="text" id="newTagInput" placeholder="새 구분" style="flex: 1;"
                                onkeydown="if(event.key==='Enter') addListItem('tags','newTagInput')">
-                        <button type="button" style="background-color: #2ecc71;" onclick="addListItem('tags','newTagInput')">추가</button>
+                        <button class="btn btn-primary" type="button" onclick="addListItem('tags','newTagInput')">추가</button>
                     </div>
                     <ul class="setting-list" id="tagListContainer" style="max-width: none;"></ul>
                 </div>
@@ -726,7 +794,7 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                         <input type="text" id="newOrgInput" placeholder="새 소속" style="flex: 1;"
                                onkeydown="if(event.key==='Enter') addListItem('orgs','newOrgInput')">
-                        <button type="button" style="background-color: #2ecc71;" onclick="addListItem('orgs','newOrgInput')">추가</button>
+                        <button class="btn btn-primary" type="button" onclick="addListItem('orgs','newOrgInput')">추가</button>
                     </div>
                     <ul class="setting-list" id="orgListContainer" style="max-width: none;"></ul>
                 </div>
@@ -736,7 +804,7 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                         <input type="text" id="newProjectInput" placeholder="새 프로젝트" style="flex: 1;"
                                onkeydown="if(event.key==='Enter') addListItem('projects','newProjectInput')">
-                        <button type="button" style="background-color: #2ecc71;" onclick="addListItem('projects','newProjectInput')">추가</button>
+                        <button class="btn btn-primary" type="button" onclick="addListItem('projects','newProjectInput')">추가</button>
                     </div>
                     <ul class="setting-list" id="projectListContainer" style="max-width: none;"></ul>
                 </div>
@@ -749,10 +817,10 @@
                 ※ 현재 데이터는 "내 문서" 폴더에 자동 저장되고 있습니다. 다른 PC로 데이터를 옮길 때만 아래 기능을 사용하세요.
             </p>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <button type="button" onclick="exportData()" style="background-color: #f39c12;">📤 수동 백업 (.json)</button>
+                <button class="btn btn-secondary" type="button" onclick="exportData()">📤 수동 백업 (.json)</button>
                 <span style="color: #ccc;">|</span>
                 <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importData(event)">
-                <button type="button" onclick="document.getElementById('importFileInput').click()" style="background-color: #9b59b6;">📥 백업 파일 불러오기</button>
+                <button class="btn btn-secondary" type="button" onclick="document.getElementById('importFileInput').click()">📥 백업 파일 불러오기</button>
             </div>
         </div>
     </div>
