@@ -153,6 +153,10 @@
         table.grid td.rownum { cursor: grab; }
         table.grid td.rownum:active { cursor: grabbing; }
         table.grid td.rownum.drag-over { box-shadow: inset 0 3px 0 #2980b9; }
+        /* 열을 끌 때 놓일 자리를 왼쪽 선으로 보여준다 */
+        table.grid thead th.drag-over { box-shadow: inset 3px 0 0 #2980b9; }
+        table.grid thead th[draggable="true"] { cursor: grab; }
+        table.grid thead th[draggable="true"]:active { cursor: grabbing; }
         table.grid thead th.rownum { z-index: 3; }
         table.grid td.cell {
             padding: 6px 10px; max-width: 260px; white-space: nowrap;
@@ -626,7 +630,7 @@
     <div id="sheetSearchModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 520px;">
             <div class="modal-header">
-                <h2>🔍 표에서 찾기</h2>
+                <h2>🔍 프로젝트 검색</h2>
                 <button class="btn-close" onclick="closeSheetSearch()">✖</button>
             </div>
             <input type="text" id="sheetSearchInput" placeholder="고객번호 · 현장명 · 담당자 …"
@@ -786,10 +790,11 @@
         <div class="page-head">
             <h2>📊 프로젝트</h2>
             <div class="page-actions">
+                <button type="button" class="btn btn-secondary" onclick="openSheetSearch()" title="Ctrl+F">🔍 검색</button>
                 <button type="button" class="btn btn-primary" onclick="openNewSheet()">➕ 새 프로젝트</button>
             </div>
         </div>
-        <p class="page-hint">💡 프로젝트 이름 우클릭: 이름 변경·삭제 / 열 제목 좌클릭: 정렬 · 우클릭: 필터·열 편집 / 행 번호 드래그: 순서 변경 · 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 · Ctrl+Z 되돌리기</p>
+        <p class="page-hint">💡 프로젝트 이름 우클릭: 이름 변경·삭제 / 열 제목 좌클릭: 정렬 · 끌기: 열 옮기기 · 우클릭: 필터·열 편집 / # 클릭: 원래 순서 / 행 번호 드래그: 순서 변경 / Ctrl+V 엑셀에서 붙여넣기 · Ctrl+Z 되돌리기</p>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -797,7 +802,6 @@
             <div class="sheet-toolbar" id="sheetToolbar">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="addSheetRow()">➕ 행 추가</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="openColumnModal(null)">➕ 열 추가</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="openSheetSearch()" title="Ctrl+F">🔍 찾기</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="undoSheet()">↩ 되돌리기</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="redoSheet()">↪ 다시</button>
                 <span class="sheet-hint" id="sheetHint"></span>
@@ -2884,7 +2888,11 @@
                 idx = idx.filter(i => !excluded.includes(filterTextOf(col, cellRaw(s.rows[i], col))));
             });
 
-            if (sheetSort) {
+            if (sheetSort && sheetSort.colIndex === -1) {
+                // 원래 순서(행이 들어온 차례) 기준
+                const dir = sheetSort.dir === 'asc' ? 1 : -1;
+                idx = idx.slice().sort((a, b) => dir * (a - b));
+            } else if (sheetSort) {
                 const col = s.columns[sheetSort.colIndex];
                 if (col) {
                     const dir = sheetSort.dir === 'asc' ? 1 : -1;
@@ -3344,6 +3352,48 @@
         }
         window.addEventListener('click', hideSheetMenus);
 
+        // ── 열 제목 드래그로 순서 바꾸기 ──────────────────────────────
+
+        let dragSrcCol = null;
+
+        function colDragStart(e, i) {
+            dragSrcCol = i;
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', String(i)); } catch (err) {}
+        }
+
+        function colDragOver(e, i) {
+            if (dragSrcCol === null) return;
+            e.preventDefault();
+            if (i !== dragSrcCol) e.currentTarget.classList.add('drag-over');
+        }
+
+        function colDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function colDrop(e, i) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            if (dragSrcCol === null || i === dragSrcCol) { dragSrcCol = null; return; }
+
+            const s = curSheet();
+            if (!s) { dragSrcCol = null; return; }
+            pushUndo();
+            const [col] = s.columns.splice(dragSrcCol, 1);
+            s.columns.splice(i, 0, col);
+            s.updatedAt = nowStamp();
+
+            // 열 번호가 바뀌었으니 그 번호로 잡아 둔 정렬·선택은 푼다.
+            sheetSort = null;
+            sel = null;
+            dragSrcCol = null;
+            renderGrid();
+            saveSheets();
+        }
+
+        function colDragEnd() { dragSrcCol = null; }
+
         // ── 행 번호 드래그로 순서 바꾸기 ──────────────────────────────
 
         let dragSrcDr = null;
@@ -3736,7 +3786,7 @@
                     : s.rows.length + '행') +
                 ' · ' + s.columns.length + '열' +
                 (filterCount ? ' · 필터 ' + filterCount + '개' : '') +
-                (sheetSort ? ' · 정렬 ' + esc(s.columns[sheetSort.colIndex] ? s.columns[sheetSort.colIndex].name : '') +
+                (sheetSort ? ' · 정렬 ' + esc(sheetSort.colIndex === -1 ? '행 번호' : (s.columns[sheetSort.colIndex] ? s.columns[sheetSort.colIndex].name : '')) +
                              (sheetSort.dir === 'asc' ? ' ▲' : ' ▼') : '') +
                 ((filterCount || sheetSort) ? ' <button type="button" class="btn-inline" onclick="clearAllViewState()">보기 초기화</button>' : '');
 
@@ -3745,12 +3795,21 @@
                 return;
             }
 
-            let html = '<table class="grid"><thead><tr><th class="rownum">#</th>';
+            // # 열도 누르면 원래 순서(입력한 차례)로 오름/내림 정렬한다.
+            const numSorted = sheetSort && sheetSort.colIndex === -1;
+            let html = '<table class="grid"><thead><tr>' +
+                '<th class="rownum" onclick="toggleSort(-1)" title="좌클릭: 원래 순서로 정렬 ↕">#' +
+                (numSorted ? '<span class="sort-mark">' + (sheetSort.dir === 'asc' ? '▲' : '▼') + '</span>' : '') +
+                '</th>';
+
             s.columns.forEach((col, i) => {
                 const sorted = sheetSort && sheetSort.colIndex === i;
                 const filtered = sheetFilters[col.id] !== undefined;
-                html += '<th onclick="toggleSort(' + i + ')" oncontextmenu="showColMenu(event, ' + i + ')"' +
-                        ' title="좌클릭: 정렬 ↕ / 우클릭: 필터·열 편집">' +
+                html += '<th draggable="true"' +
+                        ' onclick="toggleSort(' + i + ')" oncontextmenu="showColMenu(event, ' + i + ')"' +
+                        ' ondragstart="colDragStart(event, ' + i + ')" ondragover="colDragOver(event, ' + i + ')"' +
+                        ' ondragleave="colDragLeave(event)" ondrop="colDrop(event, ' + i + ')" ondragend="colDragEnd()"' +
+                        ' title="좌클릭: 정렬 ↕ / 끌기: 열 순서 옮기기 / 우클릭: 필터·열 편집">' +
                         esc(col.name) +
                         (sorted ? '<span class="sort-mark">' + (sheetSort.dir === 'asc' ? '▲' : '▼') + '</span>' : '') +
                         (filtered ? '<span class="filter-mark">▽</span>' : '') +
