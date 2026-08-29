@@ -175,19 +175,27 @@
         table.grid thead th:hover { background: #e9eef2; }
         /* ── 캘린더: 업무 / 일정 ── */
         .calendar-day { cursor: context-menu; }
+        /* 캘린더 색 체계
+           업무      파랑 채움   — 제일 많으니 조용해야 한다
+           하이라이트 노랑 채움   — 형광펜처럼 튀어야 한다. 노랑엔 진한 글씨
+           일정      초록 막대형 — 파랑과 인접색이라 채움으로 두면 헷갈린다.
+                                  형태를 달리해 색약이어도 갈리게 한다 */
         .cal-task {
             background-color: #2E86C1; color: #fff;
             font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-bottom: 3px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default;
         }
-        /* 일정은 색만이 아니라 모양도 다르게 — 색약이어도 한눈에 갈린다 */
+        .cal-task.hl {
+            background-color: #FFE066; color: #4A3B00; font-weight: 700;
+            box-shadow: inset 3px 0 0 #E0A800;
+        }
         .cal-event {
-            background: #FDF1E3; color: #A85B10; border-left: 3px solid #E67E22;
+            background: #E4F5EA; color: #1E7A46; border-left: 3px solid #27AE60;
             font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 0 3px 3px 0;
             margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             cursor: pointer;
         }
-        .cal-event:hover { background: #FAE3C6; }
+        .cal-event:hover { background: #D3EDDD; }
         .cal-legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: #7f8c8d; }
         .cal-legend span.key { display: inline-flex; align-items: center; gap: 5px; }
         .cal-swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
@@ -649,7 +657,8 @@
             <div style="display:flex; gap:8px; align-items:center;">
                 <span class="cal-legend">
                     <span class="key"><i class="cal-swatch" style="background:#2E86C1;"></i> 업무</span>
-                    <span class="key"><i class="cal-swatch" style="background:#FDF1E3; border-left:3px solid #E67E22;"></i> 일정</span>
+                    <span class="key"><i class="cal-swatch" style="background:#FFE066; box-shadow: inset 3px 0 0 #E0A800;"></i> 하이라이트</span>
+                    <span class="key"><i class="cal-swatch" style="background:#E4F5EA; border-left:3px solid #27AE60;"></i> 일정</span>
                 </span>
                 <button class="btn btn-secondary" type="button" onclick="changeMonth(-1)">◀ 이전 달</button>
                 <button class="btn btn-secondary" type="button" onclick="goToday()">오늘</button>
@@ -1078,6 +1087,7 @@
             const task = tasks.find(t => t.id === contextTargetId);
             if (task) {
                 task.highlight = !task.highlight;
+                // 캘린더에도 같은 색이 걸리므로 함께 다시 그린다.
                 updateAndSave();
             }
         }
@@ -1724,7 +1734,9 @@
                 // 그다음 TO DO 에서 넘어온 업무
                 tasks.filter(t => t.dueDate === dateStr).forEach(t => {
                     const done = t.status === '완료됨' ? 'text-decoration: line-through; opacity: 0.5;' : '';
-                    html += `<div class="cal-task" style="${done}" title="${esc(t.content || '')}">${esc(t.content || '')}</div>`;
+                    // TO DO 에서 하이라이트한 줄은 캘린더에서도 노랗게 띄운다.
+                    const hl = t.highlight ? ' hl' : '';
+                    html += `<div class="cal-task${hl}" style="${done}" title="${esc(t.content || '')}">${esc(t.content || '')}</div>`;
                 });
 
                 dayDiv.innerHTML = html;
