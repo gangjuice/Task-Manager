@@ -6,6 +6,8 @@ const path = require('path');
 // 이걸 안 하면 개발 중에는 ...\\Roaming\\Electron, 설치본은 ...\\Roaming\\Task Manager 를 써서
 // 데이터가 사라진 것처럼 보인다. getPath('userData') 보다 먼저 불러야 한다.
 app.setName('Task Manager');
+// 📌 윈도우 알림에 뜨는 앱 이름. 이걸 안 정하면 개발 중에는 'Electron' 으로 뜬다.
+app.setAppUserModelId('com.mycompany.taskmanager');
 
 // 📌 예전에는 '내 문서'에 저장했는데, 윈도우 폴더 보호가 켜져 있으면 내 문서 자체가
 // OneDrive 로 리디렉션된다. 저장할 때마다 동기화가 걸려 파일이 잠기고, rename 이 실패해
@@ -617,7 +619,7 @@ function showReminder(ev, late) {
         width: W, height: H,
         x: Math.round(b.x + (b.width - W) / 2),
         y: Math.round(b.y + (b.height - H) / 2),
-        frame: false, transparent: true, resizable: false,
+        frame: false, transparent: true, resizable: false, movable: true,
         alwaysOnTop: true, skipTaskbar: true,
         webPreferences: { nodeIntegration: true, contextIsolation: false }
     });
@@ -674,7 +676,7 @@ async function checkReminders() {
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
     for (const ev of list) {
-        if (!ev.time || ev.notifiedAt) continue;
+        if (!ev.time || !ev.remind || ev.notifiedAt) continue;   // 알림을 걸어 둔 것만
 
         const snoozeUntil = snoozed.get(ev.id);
         if (snoozeUntil) {
@@ -701,7 +703,7 @@ function startReminderTimer() {
 }
 
 // 빠른 등록 창에서 리마인더(시각이 있는 일정)를 넣는다.
-ipcMain.handle('add-event', async (event, { title, date, time, memo }) => {
+ipcMain.handle('add-event', async (event, { title, date, time, memo, remind }) => {
     const stampNow = nowStamp2();
     const list = await withDoc(doc => {
         const events = Array.isArray(doc.events) ? doc.events : [];
@@ -710,6 +712,7 @@ ipcMain.handle('add-event', async (event, { title, date, time, memo }) => {
             title: title || '',
             date: date || todayStr2(),
             time: time || '',
+            remind: !!remind,
             memo: memo || '',
             createdAt: stampNow.split('T')[0],
             updatedAt: stampNow

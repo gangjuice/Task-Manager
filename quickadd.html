@@ -45,7 +45,9 @@
         #tDue { width: 150px; font-family: 'Consolas', monospace; }
         #rTitle { flex: 1; min-width: 0; }
         #rDate { flex: 1; font-family: 'Consolas', monospace; }
-        #rTime { width: 130px; font-family: 'Consolas', monospace; }
+        #rTime { width: 118px; font-family: 'Consolas', monospace; }
+        .rbox { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #95a5a6; white-space: nowrap; cursor: pointer; }
+        .rbox input { cursor: pointer; }
 
         .actions { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
         .hint { font-size: 11px; color: #95a5a6; }
@@ -72,7 +74,7 @@
         <div class="head">
             <div class="tabs">
                 <button class="tab active" id="tabTask" onclick="switchMode('task')">✅ 업무</button>
-                <button class="tab" id="tabRemind" onclick="switchMode('remind')">🔔 리마인더</button>
+                <button class="tab" id="tabRemind" onclick="switchMode('remind')">📅 일정</button>
                 <button class="tab" id="tabContact" onclick="switchMode('contact')">📇 연락처</button>
             </div>
             <button class="close" onclick="closeSelf()" title="닫기 (Esc)">✖</button>
@@ -104,7 +106,10 @@
             </div>
             <div class="row">
                 <input type="date" id="rDate">
-                <input type="time" id="rTime">
+                <input type="time" id="rTime" oninput="syncRemindBox()">
+                <label class="rbox" id="rRemindRow">
+                    <input type="checkbox" id="rRemind"> 🔔 알림
+                </label>
             </div>
         </div>
 
@@ -162,6 +167,13 @@
             return p(d.getHours()) + ':' + p(d.getMinutes());
         }
 
+        function syncRemindBox() {
+            const has = !!$('rTime').value;
+            $('rRemind').disabled = !has;
+            if (!has) $('rRemind').checked = false;
+            $('rRemindRow').style.color = has ? '#2c3e50' : '#95a5a6';
+        }
+
         function switchMode(m) {
             mode = m;
             [['tabTask', 'paneTask', 'task'],
@@ -175,6 +187,7 @@
             else if (m === 'remind') {
                 if (!$('rDate').value) $('rDate').value = todayStr();
                 if (!$('rTime').value) $('rTime').value = defaultRemindTime();
+                syncRemindBox();
                 $('rTitle').focus();
             } else {
                 if (!$('tDue').value) $('tDue').value = todayStr();
@@ -281,11 +294,12 @@
             const title = $('rTitle').value.trim();
             if (!title) { showToast('무엇을 알려드릴지 적어주세요'); $('rTitle').focus(); return; }
 
+            const remind = $('rTime').value ? $('rRemind').checked : false;
             const res = await ipcRenderer.invoke('add-event', {
-                title: title, date: $('rDate').value, time: $('rTime').value
+                title: title, date: $('rDate').value, time: $('rTime').value, remind: remind
             });
             if (res && res.ok) {
-                showToast($('rTime').value + ' 에 알려드릴게요');
+                showToast(remind ? $('rTime').value + ' 에 알려드릴게요' : '일정을 넣었습니다');
                 clearFields();
             }
         }

@@ -49,6 +49,8 @@
         .context-menu li.delete-btn { color: #e74c3c; }
         .context-menu li.delete-btn:hover { background-color: #fceceb; }
         .context-menu li.edit-btn { color: #3498db; }
+        .context-menu li.add-btn { color: #27ae60; }
+        .context-menu li.add-btn:hover { background-color: #eafaf1; }
         .context-menu li.edit-btn:hover { background-color: #ebf5fb; }
         .filter-toolbar { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid #eee; }
         .filter-toolbar button { font-size: 11px; padding: 3px 8px; }
@@ -328,6 +330,40 @@
         .doc-item.missing .doc-path { color: #B3564C; }
         .doc-rename { font-size: 14px; font-weight: 600; padding: 3px 6px; border: 2px solid var(--c-accent); border-radius: 3px; width: 260px; }
         #phrases.drop-target { outline: 3px dashed var(--c-primary); outline-offset: -8px; background: #F3FBF6; }
+        /* 📌 .form-group 은 세로 flex 라서, 버튼 줄에 flex-direction 을 주지 않으면
+           취소와 저장이 아래위로 쌓인다. 버튼 줄은 이 클래스를 쓴다. */
+        .modal-actions {
+            display: flex; flex-direction: row; justify-content: flex-end;
+            align-items: center; gap: 10px; flex-wrap: nowrap;
+        }
+        .modal-actions .btn { min-width: 92px; }
+        /* ── 문서 보관함 ── */
+        .doc-card {
+            border: 1px solid var(--c-line); border-radius: 6px; background: var(--c-surface);
+            padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
+        }
+        .doc-card:hover { border-color: var(--c-line-strong); background: #FAFCFD; }
+        .doc-card-head { display: flex; align-items: center; gap: 10px; }
+        .doc-card-title { font-size: 14.5px; font-weight: 700; color: var(--c-ink); flex: 1; }
+        .doc-card-body {
+            font-size: 13px; color: var(--c-ink-soft); line-height: 1.6; margin-top: 6px;
+            white-space: pre-wrap; max-height: 72px; overflow: hidden;
+        }
+        .file-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .file-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #EEF3F7; border: 1px solid #DCE4EA; border-radius: 12px;
+            padding: 3px 10px; font-size: 12px; color: var(--c-ink); cursor: pointer;
+        }
+        .file-chip:hover { background: #E1EAF1; }
+        .file-chip.missing { background: #FDF3F2; border-color: #E8C4C0; color: #B3564C; }
+        .file-chip button { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 12px; padding: 0 0 0 2px; }
+        .file-drop {
+            min-height: 46px; border: 2px dashed var(--c-line-strong); border-radius: 6px;
+            padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+        }
+        .file-drop.drop-target { border-color: var(--c-primary); background: #F3FBF6; }
+        .doc-drop-hint { font-size: 12.5px; color: var(--c-ink-faint); }
     </style>
 </head>
 <body>
@@ -363,7 +399,7 @@
                     <label>비고</label>
                     <input type="text" id="edit_remarks">
                 </div>
-                <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
+                <div class="form-group full-width modal-actions">
                     <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeEditModal()">취소</button>
                     <button class="btn btn-primary" type="button" style="width:150px" onclick="saveEditedTask()">저장하기</button>
                 </div>
@@ -424,7 +460,7 @@
                     <input type="text" id="cf_firstNote" placeholder="ex) 준공서류 8/30까지 요청">
                 </div>
 
-                <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
+                <div class="form-group full-width modal-actions">
                     <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeContactForm()">취소</button>
                     <button class="btn btn-primary" type="button" style="width:150px" onclick="saveContactForm()">저장하기</button>
                 </div>
@@ -591,7 +627,7 @@
                     <div id="col_options"></div>
                     <button type="button" class="btn-inline" style="align-self:flex-start; margin-top:4px;" onclick="addColOption()">+ 항목 추가</button>
                 </div>
-                <div class="form-group full-width" style="display: flex; justify-content: flex-end; gap: 10px;">
+                <div class="form-group full-width modal-actions">
                     <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeColumnModal()">취소</button>
                     <button class="btn btn-primary" type="button" style="width:140px" onclick="saveColumn()">저장</button>
                 </div>
@@ -601,7 +637,7 @@
 
     <div id="calDayMenu" class="context-menu">
         <ul>
-            <li class="edit-btn" onclick="openEventModal(null, ctxCalDate)">🟠 이 날짜에 일정 추가</li>
+            <li class="add-btn" onclick="openEventModal(null, ctxCalDate)">🟢 이 날짜에 일정 추가</li>
             <li onclick="openCalTaskModal(ctxCalDate)">🔵 이 날짜 마감으로 업무 추가</li>
         </ul>
     </div>
@@ -633,8 +669,8 @@
                     <label>분류</label>
                     <select id="ct_category"></select>
                 </div>
-                <div class="form-group full-width" style="display:flex; justify-content:flex-end; gap:10px;">
-                    <button type="button" class="btn btn-ghost" onclick="closeCalTaskModal()">취소</button>
+                <div class="form-group full-width modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCalTaskModal()">취소</button>
                     <button type="button" class="btn btn-primary" onclick="saveCalTask()">등록하기</button>
                 </div>
             </div>
@@ -656,24 +692,39 @@
 
     <div id="docContextMenu" class="context-menu">
         <ul>
+            <li class="edit-btn" onclick="openDocModal(ctxDocId)">✏️ 수정하기</li>
             <li onclick="docShowInFolder()">📂 폴더에서 보기</li>
-            <li class="edit-btn" onclick="docRename()">✏️ 이름 변경</li>
-            <li class="delete-btn" onclick="docRemove()">🗑️ 보관함에서 빼기</li>
+            <li class="delete-btn" onclick="deleteDoc(ctxDocId)">🗑️ 지우기</li>
         </ul>
     </div>
 
-    <div id="phraseModal" class="modal-overlay">
-        <div class="modal-content" style="max-width: 520px;">
+    <div id="docModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 560px;">
             <div class="modal-header">
-                <h2>📋 새 문구</h2>
-                <button class="btn-close" onclick="closePhraseModal()">✖</button>
+                <h2 id="docModalTitle">📄 새 문서</h2>
+                <button class="btn-close" onclick="closeDocModal()">✖</button>
             </div>
-            <textarea id="phraseInput" style="width:100%; height:120px; box-sizing:border-box; resize:vertical; font-size:14px; padding:10px;"
-                      placeholder="자주 쓰는 문구를 적으세요. Ctrl+Enter 로 저장됩니다."
-                      onkeydown="if(event.key==='Enter' && (event.ctrlKey||event.metaKey)) addPhrase();"></textarea>
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
-                <button type="button" class="btn btn-ghost" onclick="closePhraseModal()">취소</button>
-                <button type="button" class="btn btn-primary" onclick="addPhrase()">저장</button>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>제목</label>
+                    <input type="text" id="doc_title" placeholder="ex) 신정로 준공서류">
+                </div>
+                <div class="form-group full-width">
+                    <label>내용</label>
+                    <textarea id="doc_content" style="height:120px; resize:vertical;"
+                              placeholder="적어둘 내용이 있으면 쓰세요. 자주 쓰는 문구를 넣어두고 복사해 써도 됩니다."></textarea>
+                </div>
+                <div class="form-group full-width">
+                    <label>붙임파일</label>
+                    <div id="doc_files" class="file-drop"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" style="align-self:flex-start; margin-top:8px;" onclick="pickDraftFiles()">📎 파일 첨부</button>
+                </div>
+                <div class="form-group full-width modal-actions" style="justify-content:space-between;">
+                    <button type="button" class="btn btn-danger" id="doc_deleteBtn" style="display:none;" onclick="deleteDoc()">삭제</button>
+                    <span style="flex:1;"></span>
+                    <button type="button" class="btn btn-secondary" onclick="closeDocModal()">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="saveDocModal()">저장하기</button>
+                </div>
             </div>
         </div>
     </div>
@@ -709,14 +760,19 @@
                     <input type="date" id="ev_date">
                 </div>
                 <div class="form-group">
-                    <label>시각 (넣으면 그 시각에 알려줍니다)</label>
-                    <input type="time" id="ev_time">
+                    <label>시각</label>
+                    <input type="time" id="ev_time" oninput="syncRemindToggle()">
+                </div>
+                <div class="form-group full-width">
+                    <label class="toggle-switch" id="ev_remindRow" style="font-size:13px; color:var(--c-ink-faint);">
+                        <input type="checkbox" id="ev_remind" disabled> 🔔 그 시각에 알림 띄우기
+                    </label>
                 </div>
                 <div class="form-group full-width">
                     <label>메모 (선택)</label>
                     <textarea id="ev_memo" style="height:70px; resize:vertical;" placeholder="자세한 내용"></textarea>
                 </div>
-                <div class="form-group full-width" style="display:flex; justify-content:space-between; gap:10px;">
+                <div class="form-group full-width modal-actions" style="justify-content:space-between;">
                     <button class="btn btn-danger" type="button" id="ev_deleteBtn" style="width:100px; display:none" onclick="deleteEvent()">삭제</button>
                     <span style="flex:1;"></span>
                     <button class="btn btn-ghost" type="button" style="width:100px" onclick="closeEventModal()">취소</button>
@@ -726,9 +782,6 @@
         </div>
     </div>
 
-    <div class="header-container">
-        <h1 style="margin: 0;">🚀 Task Manager</h1>
-    </div>
 
     <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchTab(event, 'dashboard')">📅 캘린더</button>
@@ -736,10 +789,10 @@
         <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">✏️ TO DO</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'contacts')">📇 연락처</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 프로젝트</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'phrases')">📋 문구 창고</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'phrases')">📁 문서 보관함</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
         <button type="button" class="btn btn-secondary btn-sm" style="margin-left: auto; align-self: center;" onclick="openGlobalSearch()" title="Ctrl+Shift+F">🔍 전체 검색</button>
-        <button type="button" class="btn btn-secondary btn-sm" style="align-self: center;" onclick="openWidget()">📝 메모 위젯</button>
+        <button type="button" class="btn btn-secondary btn-sm" style="align-self: center; margin-left: 8px;" onclick="openWidget()">📝 메모 위젯</button>
     </div>
 
     <div id="dashboard" class="tab-content active">
@@ -857,20 +910,16 @@
             <h2>📁 문서 보관함</h2>
             <span class="contact-count" id="docCount">0개</span>
             <div class="page-actions">
-                <button type="button" class="btn btn-secondary" onclick="openPhraseModal()">➕ 새 문구</button>
-                <button type="button" class="btn btn-primary" onclick="addDocument()">➕ 새 문서</button>
+                <button type="button" class="btn btn-primary" onclick="openDocModal(null)">➕ 새 문서</button>
             </div>
         </div>
-        <p class="page-hint">💡 파일을 이 화면에 끌어다 놓으면 들어갑니다 · 눌러서 열기 · 우클릭: 폴더에서 보기 · 이름 변경 · 빼기<br>파일은 복사하지 않고 원본 위치를 기억합니다. 원본을 옮기면 ⚠️ 로 표시됩니다.</p>
+        <p class="page-hint">💡 제목 · 내용 · 붙임파일을 한 항목으로 묶습니다 · 파일을 화면에 끌어다 놓으면 바로 새 문서가 열립니다<br>파일은 복사하지 않고 원본 위치를 기억합니다. 원본을 옮기면 ⚠️ 로 표시됩니다.</p>
 
         <input type="text" id="phraseSearch" placeholder="🔍 문서 · 문구 검색"
                oninput="renderPhrases(); renderDocs();"
                style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px; margin-bottom:14px;">
 
         <div id="docListContainer"></div>
-
-        <h3 style="margin: 22px 0 10px; font-size: 14px; color: var(--c-ink-soft);">📋 문구</h3>
-        <div id="phraseListContainer"></div>
     </div>
 
     <div id="settings" class="tab-content">
@@ -992,6 +1041,7 @@
                     sheets = parsed.sheets;
                     if (!curSheet()) activeSheetId = sheets.length ? sheets[0].id : null;
                     renderSheets();
+            migratePhrases();
             renderDocs();
             checkDocFiles();
                 }
@@ -1646,11 +1696,23 @@
             document.getElementById('ev_title').value = ev ? (ev.title || '') : '';
             document.getElementById('ev_date').value  = ev ? (ev.date || '') : (presetDate || getTodayString());
             document.getElementById('ev_time').value  = ev ? (ev.time || '') : '';
+            document.getElementById('ev_remind').checked = ev ? !!ev.remind : false;
+            syncRemindToggle();
             document.getElementById('ev_memo').value  = ev ? (ev.memo || '') : '';
             document.getElementById('ev_deleteBtn').style.display = ev ? 'inline-block' : 'none';
 
             document.getElementById('eventModal').style.display = 'flex';
             document.getElementById('ev_title').focus();
+        }
+
+        // 시각이 없으면 알림을 걸 수 없다. 시각을 넣어야 체크가 열린다.
+        function syncRemindToggle() {
+            const has = !!document.getElementById('ev_time').value;
+            const box = document.getElementById('ev_remind');
+            box.disabled = !has;
+            if (!has) box.checked = false;
+            document.getElementById('ev_remindRow').style.color =
+                has ? 'var(--c-ink)' : 'var(--c-ink-faint)';
         }
 
         function closeEventModal() {
@@ -1697,6 +1759,7 @@
             const title = document.getElementById('ev_title').value.trim();
             const date  = document.getElementById('ev_date').value;
             const time  = document.getElementById('ev_time').value;
+            const remind = time ? document.getElementById('ev_remind').checked : false;
             const memo  = document.getElementById('ev_memo').value.trim();
 
             if (!title) { showToast('일정 내용을 적어주세요'); document.getElementById('ev_title').focus(); return; }
@@ -1705,12 +1768,12 @@
             if (editingEventId) {
                 const ev = events.find(e => e.id === editingEventId);
                 // 시각이나 날짜를 고치면 다시 알려야 하므로 알림 표시를 지운다.
-                if (ev) Object.assign(ev, { title: title, date: date, time: time, memo: memo,
-                                           notifiedAt: (ev.date === date && ev.time === time) ? ev.notifiedAt : '',
+                if (ev) Object.assign(ev, { title: title, date: date, time: time, memo: memo, remind: remind,
+                                           notifiedAt: (ev.date === date && ev.time === time && ev.remind === remind) ? ev.notifiedAt : '',
                                            updatedAt: nowStamp() });
             } else {
                 events.push({
-                    id: Date.now(), title: title, date: date, time: time, memo: memo,
+                    id: Date.now(), title: title, date: date, time: time, memo: memo, remind: remind,
                     createdAt: getTodayString(), updatedAt: nowStamp()
                 });
             }
@@ -1829,7 +1892,7 @@
 
                 // 일정을 먼저 (직접 넣은 것이라 눈에 먼저 들어와야 한다)
                 events.filter(ev => ev.date === dateStr).forEach(ev => {
-                    const t = ev.time ? '<b>' + esc(ev.time) + '</b> ' : '';
+                    const t = (ev.time ? '<b>' + esc(ev.time) + '</b> ' : '') + (ev.remind ? '🔔 ' : '');
                     html += `<div class="cal-event" data-ev="${ev.id}" title="${esc(ev.memo || ev.title)}">${t}${esc(ev.title)}</div>`;
                 });
 
@@ -4149,61 +4212,169 @@
 
 
         // ══════════════════════════════════════════════════════════════
-        // 문서 보관함 — 원본 파일의 경로를 기억해 두고 눌러서 연다
+        // 문서 보관함 — 제목 + 내용 + 붙임파일을 한 항목으로 묶는다
         // ══════════════════════════════════════════════════════════════
 
         let docs = [];
+        let ctxDocId = null;
+        let editingDocId = null;
+        let draftFiles = [];
 
         function saveDocs() {
             saveSections({ docs: docs });
             renderDocs();
         }
 
-        // 📌 경로만 기억하므로 원본을 옮기거나 지우면 링크가 죽는다.
-        // 눌렀을 때 처음 알게 되면 늦다. 켤 때 한 번 확인해 목록에 표시해 둔다.
-        async function checkDocFiles() {
-            if (!docs.length) return;
-            const paths = docs.map(d => d.path);
-            const missing = await ipcRenderer.invoke('check-files', paths);
-            let changed = false;
-            docs.forEach((d, i) => {
-                const gone = !!missing[i];
-                if (!!d.missing !== gone) { d.missing = gone; changed = true; }
+        // 예전 "문구 창고" 항목을 문서 항목으로 옮긴다. 여러 번 실행해도 안전하다.
+        function migratePhrases() {
+            let moved = 0;
+            phrases.forEach(p => {
+                if (docs.some(d => d.fromPhrase === p.id)) return;
+                const text = String(p.text || '');
+                docs.push({
+                    id: Date.now() + Math.floor(Math.random() * 10000),
+                    title: text.split('\n')[0].slice(0, 40) || '문구',
+                    content: text,
+                    files: [],
+                    createdAt: p.createdAt || getTodayString(),
+                    fromPhrase: p.id
+                });
+                moved++;
             });
+            if (moved) saveSections({ docs: docs });
+            return moved;
+        }
+
+        // 📌 경로만 기억하므로 원본을 옮기거나 지우면 링크가 죽는다.
+        // 켤 때 한 번 확인해 목록에 표시해 둔다.
+        async function checkDocFiles() {
+            const all = [];
+            docs.forEach(d => (d.files || []).forEach(f => all.push(f)));
+            if (!all.length) return;
+            const missing = await ipcRenderer.invoke('check-files', all.map(f => f.path));
+            let k = 0, changed = false;
+            docs.forEach(d => (d.files || []).forEach(f => {
+                const gone = !!missing[k++];
+                if (!!f.missing !== gone) { f.missing = gone; changed = true; }
+            }));
             if (changed) renderDocs();
         }
 
-        async function addDocument() {
-            const picked = await ipcRenderer.invoke('pick-files');
-            if (picked && picked.length) addDocPaths(picked);
+        // ── 새 문서 / 수정 ────────────────────────────────────────────
+
+        function openDocModal(id) {
+            editingDocId = id || null;
+            const d = id ? docs.find(x => x.id === id) : null;
+
+            document.getElementById('docModalTitle').innerText = d ? '📄 문서 수정' : '📄 새 문서';
+            document.getElementById('doc_title').value = d ? (d.title || '') : '';
+            document.getElementById('doc_content').value = d ? (d.content || '') : '';
+            draftFiles = d ? (d.files || []).map(f => Object.assign({}, f)) : [];
+            document.getElementById('doc_deleteBtn').style.display = d ? 'inline-flex' : 'none';
+
+            renderDraftFiles();
+            document.getElementById('docModal').style.display = 'flex';
+            document.getElementById('doc_title').focus();
         }
 
-        function addDocPaths(paths) {
+        function closeDocModal() {
+            document.getElementById('docModal').style.display = 'none';
+            editingDocId = null;
+            draftFiles = [];
+        }
+
+        function renderDraftFiles() {
+            const box = document.getElementById('doc_files');
+            if (!draftFiles.length) {
+                box.innerHTML = '<span class="doc-drop-hint">이 칸에 파일을 끌어다 놓거나 “📎 파일 첨부”를 누르세요</span>';
+                return;
+            }
+            box.innerHTML = draftFiles.map((f, i) =>
+                '<span class="file-chip' + (f.missing ? ' missing' : '') + '" title="' + esc(f.path) + '">' +
+                    (f.missing ? '⚠️' : docIcon(f.name)) + ' ' + esc(f.name) +
+                    '<button type="button" onclick="removeDraftFile(' + i + ')">✖</button>' +
+                '</span>'
+            ).join('');
+        }
+
+        function addDraftFilePaths(paths) {
             let added = 0;
             paths.forEach(p => {
-                if (docs.some(d => d.path === p)) return;   // 같은 파일은 한 번만
-                docs.push({
-                    id: Date.now() + Math.floor(Math.random() * 1000),
-                    name: p.split(/[\\/]/).pop(),
-                    path: p,
-                    addedAt: getTodayString()
-                });
+                if (draftFiles.some(f => f.path === p)) return;
+                draftFiles.push({ name: p.split(/[\\/]/).pop(), path: p });
                 added++;
             });
-            if (!added) { showToast('이미 들어 있는 파일입니다'); return; }
-            saveDocs();
-            showToast(added + '개 문서를 넣었습니다');
+            if (added) renderDraftFiles();
         }
 
-        function openDocument(id) {
-            const d = docs.find(x => x.id === id);
+        async function pickDraftFiles() {
+            const picked = await ipcRenderer.invoke('pick-files');
+            if (picked && picked.length) addDraftFilePaths(picked);
+        }
+
+        function removeDraftFile(i) {
+            draftFiles.splice(i, 1);
+            renderDraftFiles();
+        }
+
+        function saveDocModal() {
+            const title = document.getElementById('doc_title').value.trim();
+            const content = document.getElementById('doc_content').value.trim();
+
+            if (!title && !content && !draftFiles.length) {
+                showToast('제목 · 내용 · 파일 중 하나는 채워주세요');
+                return;
+            }
+
+            if (editingDocId) {
+                const d = docs.find(x => x.id === editingDocId);
+                if (d) Object.assign(d, { title: title, content: content, files: draftFiles.slice() });
+            } else {
+                docs.push({
+                    id: Date.now(),
+                    title: title || (draftFiles[0] ? draftFiles[0].name : content.split('\n')[0].slice(0, 40)),
+                    content: content,
+                    files: draftFiles.slice(),
+                    createdAt: getTodayString()
+                });
+            }
+            saveDocs();
+            closeDocModal();
+        }
+
+        function deleteDoc(id) {
+            const target = id || editingDocId || ctxDocId;
+            const d = docs.find(x => x.id === target);
             if (!d) return;
-            ipcRenderer.invoke('open-file', d.path).then(res => {
+            // 목록에서만 지운다. 붙여 둔 원본 파일은 건드리지 않는다.
+            if (!confirm('\'' + (d.title || '제목 없음') + '\' 을(를) 지울까요?\n붙여 둔 원본 파일은 지우지 않습니다.')) return;
+            docs = docs.filter(x => x.id !== target);
+            saveDocs();
+            closeDocModal();
+        }
+
+        // ── 파일 열기 ─────────────────────────────────────────────────
+
+        function openDocFile(docId, index) {
+            const d = docs.find(x => x.id === docId);
+            const f = d && (d.files || [])[index];
+            if (!f) return;
+            ipcRenderer.invoke('open-file', f.path).then(res => {
                 if (res && res.ok) return;
-                d.missing = true;
+                f.missing = true;
                 renderDocs();
                 showToast('파일을 찾을 수 없습니다. 옮겼거나 지워진 것 같습니다');
             });
+        }
+
+        function copyDocContent(id, btn) {
+            const d = docs.find(x => x.id === id);
+            if (!d || !d.content) return;
+            navigator.clipboard.writeText(d.content).then(() => {
+                const before = btn.innerText;
+                btn.innerText = '복사됨';
+                setTimeout(() => { btn.innerText = before; }, 1200);
+            }).catch(() => {});
         }
 
         function showDocMenu(e, id) {
@@ -4223,46 +4394,16 @@
         }
         window.addEventListener('click', hideDocMenu);
 
-        let ctxDocId = null;
-
         function docShowInFolder() {
             const d = docs.find(x => x.id === ctxDocId);
-            if (d) ipcRenderer.send('show-in-folder', d.path);
-        }
-
-        function docRename() {
-            const d = docs.find(x => x.id === ctxDocId);
-            if (!d) return;
-            const el = document.querySelector('.doc-item[data-id="' + d.id + '"] .doc-name');
-            if (!el) return;
-            el.innerHTML = '<input type="text" class="doc-rename" value="' + esc(d.name) + '"' +
-                ' onclick="event.stopPropagation()"' +
-                ' onblur="docRenameCommit(' + d.id + ', this.value)"' +
-                ' onkeydown="if(event.key===\'Enter\' && !event.isComposing) this.blur(); if(event.key===\'Escape\') renderDocs();">';
-            const inp = el.querySelector('input');
-            inp.focus();
-            inp.select();
-        }
-
-        function docRenameCommit(id, value) {
-            const d = docs.find(x => x.id === id);
-            const v = String(value || '').trim();
-            if (d && v && v !== d.name) { d.name = v; saveDocs(); return; }
-            renderDocs();
-        }
-
-        function docRemove() {
-            const d = docs.find(x => x.id === ctxDocId);
-            if (!d) return;
-            // 목록에서만 빼는 것이지 원본 파일은 건드리지 않는다.
-            if (!confirm('\'' + d.name + '\' 을(를) 보관함에서 뺄까요?\n원본 파일은 지우지 않습니다.')) return;
-            docs = docs.filter(x => x.id !== d.id);
-            saveDocs();
+            const f = d && (d.files || [])[0];
+            if (f) ipcRenderer.send('show-in-folder', f.path);
+            else showToast('붙여 둔 파일이 없습니다');
         }
 
         function docIcon(name) {
             const ext = String(name).split('.').pop().toLowerCase();
-            if (['pdf'].includes(ext)) return '📕';
+            if (ext === 'pdf') return '📕';
             if (['xls', 'xlsx', 'csv'].includes(ext)) return '📗';
             if (['doc', 'docx', 'hwp', 'hwpx'].includes(ext)) return '📘';
             if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext)) return '🖼️';
@@ -4271,6 +4412,8 @@
             return '📄';
         }
 
+        // ── 목록 ──────────────────────────────────────────────────────
+
         function renderDocs() {
             const box = document.getElementById('docListContainer');
             if (!box) return;
@@ -4278,7 +4421,10 @@
             const searchEl = document.getElementById('phraseSearch');
             const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
             const list = q
-                ? docs.filter(d => String(d.name).toLowerCase().includes(q) || String(d.path).toLowerCase().includes(q))
+                ? docs.filter(d =>
+                    String(d.title || '').toLowerCase().includes(q) ||
+                    String(d.content || '').toLowerCase().includes(q) ||
+                    (d.files || []).some(f => String(f.name).toLowerCase().includes(q)))
                 : docs;
 
             const count = document.getElementById('docCount');
@@ -4287,28 +4433,38 @@
             if (!list.length) {
                 box.innerHTML = '<p class="contact-empty">' +
                     (docs.length ? '검색 결과가 없습니다.'
-                                 : '아직 넣은 문서가 없습니다.<br>파일을 이 화면으로 <b>끌어다 놓거나</b> 오른쪽 위 “➕ 새 문서”를 누르세요.') +
+                                 : '아직 넣은 문서가 없습니다.<br>오른쪽 위 <b>➕ 새 문서</b>를 누르거나 파일을 이 화면에 끌어다 놓으세요.') +
                     '</p>';
                 return;
             }
 
             box.innerHTML = list.slice().sort((a, b) =>
-                String(b.addedAt || '').localeCompare(String(a.addedAt || ''))
-            ).map(d =>
-                '<div class="doc-item' + (d.missing ? ' missing' : '') + '" data-id="' + d.id + '"' +
-                ' onclick="openDocument(' + d.id + ')" oncontextmenu="showDocMenu(event, ' + d.id + ')"' +
-                ' title="' + esc(d.path) + '">' +
-                    '<span class="doc-icon">' + (d.missing ? '⚠️' : docIcon(d.name)) + '</span>' +
-                    '<span class="doc-name">' + esc(d.name) + '</span>' +
-                    '<span class="doc-path">' + esc(d.missing ? '파일을 찾을 수 없습니다 — ' + d.path : d.path) + '</span>' +
-                '</div>'
-            ).join('');
+                String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+            ).map(d => {
+                const files = (d.files || []).map((f, i) =>
+                    '<span class="file-chip' + (f.missing ? ' missing' : '') + '"' +
+                    ' onclick="event.stopPropagation(); openDocFile(' + d.id + ', ' + i + ')"' +
+                    ' title="' + esc(f.path) + '">' +
+                    (f.missing ? '⚠️' : docIcon(f.name)) + ' ' + esc(f.name) + '</span>'
+                ).join('');
+
+                return '<div class="doc-card" onclick="openDocModal(' + d.id + ')"' +
+                    ' oncontextmenu="showDocMenu(event, ' + d.id + ')">' +
+                    '<div class="doc-card-head">' +
+                        '<span class="doc-card-title">' + (esc(d.title) || '(제목 없음)') + '</span>' +
+                        (d.content ? '<button type="button" class="btn-inline" onclick="event.stopPropagation(); copyDocContent(' + d.id + ', this)">내용 복사</button>' : '') +
+                    '</div>' +
+                    (d.content ? '<div class="doc-card-body">' + esc(d.content) + '</div>' : '') +
+                    (files ? '<div class="file-chips">' + files + '</div>' : '') +
+                '</div>';
+            }).join('');
         }
 
-        // 파일을 창에 끌어다 놓으면 보관함에 들어간다.
+        // 파일을 화면이나 내용칸에 끌어다 놓으면 붙는다.
         (function initDocDrop() {
             const tab = document.getElementById('phrases');
             if (!tab) return;
+
             ['dragenter', 'dragover'].forEach(ev => tab.addEventListener(ev, e => {
                 e.preventDefault();
                 tab.classList.add('drop-target');
@@ -4320,7 +4476,25 @@
             tab.addEventListener('drop', e => {
                 e.preventDefault();
                 const paths = [...(e.dataTransfer.files || [])].map(f => f.path).filter(Boolean);
-                if (paths.length) addDocPaths(paths);
+                if (!paths.length) return;
+                openDocModal(null);
+                addDraftFilePaths(paths);
+            });
+
+            const modal = document.getElementById('docModal');
+            if (!modal) return;
+            ['dragenter', 'dragover'].forEach(ev => modal.addEventListener(ev, e => {
+                e.preventDefault();
+                document.getElementById('doc_files').classList.add('drop-target');
+            }));
+            ['dragleave', 'drop'].forEach(ev => modal.addEventListener(ev, e => {
+                document.getElementById('doc_files').classList.remove('drop-target');
+            }));
+            modal.addEventListener('drop', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                const paths = [...(e.dataTransfer.files || [])].map(f => f.path).filter(Boolean);
+                if (paths.length) addDraftFilePaths(paths);
             });
         })();
 
