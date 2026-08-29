@@ -165,6 +165,24 @@
         .sort-mark { color: #2980b9; margin-left: 5px; font-size: 11px; }
         .filter-mark { color: #e67e22; margin-left: 3px; font-size: 11px; }
         table.grid thead th:hover { background: #e9eef2; }
+        /* ── 캘린더: 업무 / 일정 ── */
+        .calendar-day { cursor: context-menu; }
+        .cal-task {
+            background-color: #2E86C1; color: #fff;
+            font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-bottom: 3px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default;
+        }
+        /* 일정은 색만이 아니라 모양도 다르게 — 색약이어도 한눈에 갈린다 */
+        .cal-event {
+            background: #FDF1E3; color: #A85B10; border-left: 3px solid #E67E22;
+            font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 0 3px 3px 0;
+            margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .cal-event:hover { background: #FAE3C6; }
+        .cal-legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: #7f8c8d; }
+        .cal-legend span.key { display: inline-flex; align-items: center; gap: 5px; }
+        .cal-swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -449,6 +467,49 @@
         </div>
     </div>
 
+    <div id="calDayMenu" class="context-menu">
+        <ul>
+            <li class="edit-btn" onclick="openEventModal(null, ctxCalDate)">➕ 이 날짜에 일정 추가</li>
+        </ul>
+    </div>
+
+    <div id="calEventMenu" class="context-menu">
+        <ul>
+            <li class="edit-btn" onclick="openEventModal(ctxEventId)">✏️ 수정하기</li>
+            <li class="delete-btn" onclick="deleteEvent(ctxEventId)">🗑️ 삭제하기</li>
+        </ul>
+    </div>
+
+    <div id="eventModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2 id="evModalTitle">➕ 새 일정</h2>
+                <button class="btn-close" onclick="closeEventModal()">✖</button>
+            </div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>일정 내용</label>
+                    <input type="text" id="ev_title" placeholder="ex) ○○시청 현장 점검"
+                           onkeydown="if(event.key==='Enter' && !event.isComposing) saveEvent();">
+                </div>
+                <div class="form-group full-width">
+                    <label>날짜</label>
+                    <input type="date" id="ev_date">
+                </div>
+                <div class="form-group full-width">
+                    <label>메모 (선택)</label>
+                    <textarea id="ev_memo" style="height:70px; resize:vertical;" placeholder="자세한 내용"></textarea>
+                </div>
+                <div class="form-group full-width" style="display:flex; justify-content:space-between; gap:10px;">
+                    <button type="button" id="ev_deleteBtn" style="background:#e74c3c; width:100px; display:none;" onclick="deleteEvent()">삭제</button>
+                    <span style="flex:1;"></span>
+                    <button type="button" style="background:#7f8c8d; width:100px;" onclick="closeEventModal()">취소</button>
+                    <button type="button" style="background:#2ecc71; width:140px;" onclick="saveEvent()">저장하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="header-container">
         <h1 style="margin: 0;">🚀 Task Manager</h1>
         <button type="button" class="btn-new-task" style="background-color: #9b59b6; margin-left: auto;" onclick="openWidget()">📅 달력 위젯 띄우기</button>
@@ -467,11 +528,18 @@
     <div id="dashboard" class="tab-content active">
         <div class="calendar-header">
             <h2 id="calMonthText"></h2>
-            <div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <span class="cal-legend">
+                    <span class="key"><i class="cal-swatch" style="background:#2E86C1;"></i> 업무</span>
+                    <span class="key"><i class="cal-swatch" style="background:#FDF1E3; border-left:3px solid #E67E22;"></i> 일정</span>
+                </span>
                 <button type="button" onclick="changeMonth(-1)">◀ 이전 달</button>
+                <button type="button" onclick="goToday()" style="background:#7f8c8d;">오늘</button>
                 <button type="button" onclick="changeMonth(1)">다음 달 ▶</button>
+                <button type="button" class="btn-new-task" onclick="openEventModal(null)">➕ 일정 추가</button>
             </div>
         </div>
+        <p style="font-size:12px; color:#95a5a6; margin:0 0 10px;">💡 날짜 칸 우클릭: 그 날짜에 일정 추가 / 일정 클릭: 수정</p>
         <div class="calendar-grid" id="calendarGrid"></div>
     </div>
 
@@ -580,6 +648,16 @@
             </p>
             <label class="toggle-switch">
                 <input type="checkbox" id="autoStartCheckbox" onchange="toggleAutoStart()"> 부팅 시 자동 실행 켜기
+            </label>
+        </div>
+
+        <div class="setting-section">
+            <h3>📅 캘린더</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 10px;">
+                주말을 숨기면 캘린더가 월~금 5칸으로 바뀌어 평일 일정이 더 크게 보입니다.
+            </p>
+            <label class="toggle-switch">
+                <input type="checkbox" id="hideWeekendCheckbox" onchange="toggleHideWeekend()"> 토요일 · 일요일 숨기기
             </label>
         </div>
 
@@ -705,6 +783,11 @@
                         try { memoEl.setSelectionRange(pos, pos); } catch (e) {}
                     }
                 }
+                if (parsed.events || parsed.calendarOptions) {
+                    if (parsed.events) events = parsed.events;
+                    if (parsed.calendarOptions) calendarOptions = parsed.calendarOptions;
+                    renderCalendar();
+                }
                 if (parsed.sheets) {
                     sheets = parsed.sheets;
                     if (!curSheet()) activeSheetId = sheets.length ? sheets[0].id : null;
@@ -754,11 +837,14 @@
                 if (Array.isArray(doc.projects)) projects = doc.projects;
                 if (Array.isArray(doc.phrases)) phrases = doc.phrases;
                 if (Array.isArray(doc.sheets)) sheets = doc.sheets;
+                if (Array.isArray(doc.events)) events = doc.events;
+                if (doc.calendarOptions) calendarOptions = doc.calendarOptions;
                 if (sheets.length) activeSheetId = sheets[0].id;
             }
             
             const isAutoStart = await ipcRenderer.invoke('get-autostart');
             document.getElementById('autoStartCheckbox').checked = isAutoStart;
+            document.getElementById('hideWeekendCheckbox').checked = !!calendarOptions.hideWeekend;
             
             document.getElementById('memoPad').value = savedMemo;
             renderCategories();
@@ -1305,60 +1391,205 @@
             reader.readAsText(file);
         }
 
+
+        // ══════════════════════════════════════════════════════════════
+        // 캘린더 — 업무(파랑) + 일정(주황)
+        // ══════════════════════════════════════════════════════════════
+
+        let events = [];
+        let calendarOptions = { hideWeekend: false };
+        let ctxCalDate = null;
+        let ctxEventId = null;
+        let editingEventId = null;
+
+        function saveEvents() {
+            saveSections({ events: events });
+            renderCalendar();
+        }
+
+        // 📌 settings 는 메인 프로세스가 쓰는 섹션(단축키 등)이라 건드리면 덮어쓴다.
+        // 캘린더 보기 설정은 별도 섹션에 둔다.
+        function saveCalendarOptions() {
+            saveSections({ calendarOptions: calendarOptions });
+        }
+
+        function toggleHideWeekend() {
+            calendarOptions.hideWeekend = document.getElementById('hideWeekendCheckbox').checked;
+            saveCalendarOptions();
+            renderCalendar();
+            showToast(calendarOptions.hideWeekend ? '캘린더에서 주말을 숨깁니다' : '캘린더에 주말을 표시합니다');
+        }
+
+        // ── 일정 추가 / 수정 ──────────────────────────────────────────
+
+        function openEventModal(id, presetDate) {
+            editingEventId = id || null;
+            const ev = id ? events.find(e => e.id === id) : null;
+
+            document.getElementById('evModalTitle').innerText = ev ? '✏️ 일정 수정' : '➕ 새 일정';
+            document.getElementById('ev_title').value = ev ? (ev.title || '') : '';
+            document.getElementById('ev_date').value  = ev ? (ev.date || '') : (presetDate || getTodayString());
+            document.getElementById('ev_memo').value  = ev ? (ev.memo || '') : '';
+            document.getElementById('ev_deleteBtn').style.display = ev ? 'inline-block' : 'none';
+
+            document.getElementById('eventModal').style.display = 'flex';
+            document.getElementById('ev_title').focus();
+        }
+
+        function closeEventModal() {
+            document.getElementById('eventModal').style.display = 'none';
+            editingEventId = null;
+        }
+
+        function saveEvent() {
+            const title = document.getElementById('ev_title').value.trim();
+            const date  = document.getElementById('ev_date').value;
+            const memo  = document.getElementById('ev_memo').value.trim();
+
+            if (!title) { showToast('일정 내용을 적어주세요'); document.getElementById('ev_title').focus(); return; }
+            if (!date)  { showToast('날짜를 골라주세요'); return; }
+
+            if (editingEventId) {
+                const ev = events.find(e => e.id === editingEventId);
+                if (ev) Object.assign(ev, { title: title, date: date, memo: memo, updatedAt: nowStamp() });
+            } else {
+                events.push({
+                    id: Date.now(), title: title, date: date, memo: memo,
+                    createdAt: getTodayString(), updatedAt: nowStamp()
+                });
+            }
+
+            saveEvents();
+            closeEventModal();
+            showToast(editingEventId ? '일정을 수정했습니다' : '일정을 등록했습니다');
+        }
+
+        function deleteEvent(id) {
+            const target = id || editingEventId || ctxEventId;
+            const ev = events.find(e => e.id === target);
+            if (!ev) return;
+            if (!confirm('\'' + ev.title + '\' 일정을 삭제할까요?')) return;
+            events = events.filter(e => e.id !== target);
+            saveEvents();
+            closeEventModal();
+        }
+
+        // ── 우클릭 메뉴 ───────────────────────────────────────────────
+
+        function showCalDayMenu(e, dateStr) {
+            e.preventDefault();
+            e.stopPropagation();
+            ctxCalDate = dateStr;
+            hideCalMenus();
+            const m = document.getElementById('calDayMenu');
+            m.style.display = 'block';
+            m.style.left = e.pageX + 'px';
+            m.style.top = e.pageY + 'px';
+        }
+
+        function showCalEventMenu(e, id) {
+            e.preventDefault();
+            e.stopPropagation();
+            ctxEventId = id;
+            hideCalMenus();
+            const m = document.getElementById('calEventMenu');
+            m.style.display = 'block';
+            m.style.left = e.pageX + 'px';
+            m.style.top = e.pageY + 'px';
+        }
+
+        function hideCalMenus() {
+            ['calDayMenu', 'calEventMenu'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+        }
+        window.addEventListener('click', hideCalMenus);
+
         function changeMonth(delta) {
             currentDate.setMonth(currentDate.getMonth() + delta);
             renderCalendar();
         }
 
+        function goToday() {
+            currentDate = new Date();
+            renderCalendar();
+        }
+
+        // ── 그리기 ────────────────────────────────────────────────────
+
         function renderCalendar() {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
             document.getElementById('calMonthText').innerText = `${year}년 ${month + 1}월`;
-            
-            const firstDay = new Date(year, month, 1).getDay();
-            const lastDate = new Date(year, month + 1, 0).getDate();
+
             const grid = document.getElementById('calendarGrid');
             grid.innerHTML = '';
-            
-            const days = ['일', '월', '화', '수', '목', '금', '토'];
+
+            const hideWeekend = !!calendarOptions.hideWeekend;
+            const days = hideWeekend ? ['월', '화', '수', '목', '금'] : ['일', '월', '화', '수', '목', '금', '토'];
+            grid.style.gridTemplateColumns = 'repeat(' + days.length + ', 1fr)';
+
             days.forEach(d => {
-                const dayDiv = document.createElement('div');
-                dayDiv.className = 'calendar-day-header';
-                dayDiv.innerText = d;
-                if(d === '일') dayDiv.style.color = 'red';
-                if(d === '토') dayDiv.style.color = 'blue';
-                grid.appendChild(dayDiv);
+                const h = document.createElement('div');
+                h.className = 'calendar-day-header';
+                h.innerText = d;
+                if (d === '일') h.style.color = 'red';
+                if (d === '토') h.style.color = 'blue';
+                grid.appendChild(h);
             });
-            
-            for(let i=0; i<firstDay; i++) {
-                const emptyDiv = document.createElement('div');
-                emptyDiv.className = 'calendar-day';
-                emptyDiv.style.background = '#f9f9f9';
-                grid.appendChild(emptyDiv);
+
+            // 1일이 몇 번째 칸에서 시작하는지. 주말을 숨기면 월요일이 첫 칸이다.
+            const firstWeekday = new Date(year, month, 1).getDay();   // 0=일 … 6=토
+            const leading = hideWeekend
+                ? ((firstWeekday === 0 || firstWeekday === 6) ? 0 : firstWeekday - 1)
+                : firstWeekday;
+
+            for (let i = 0; i < leading; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'calendar-day';
+                empty.style.background = '#f9f9f9';
+                grid.appendChild(empty);
             }
-            
+
+            const lastDate = new Date(year, month + 1, 0).getDate();
             const realToday = new Date();
 
-            for(let date=1; date<=lastDate; date++) {
+            for (let date = 1; date <= lastDate; date++) {
+                const wd = new Date(year, month, date).getDay();
+                if (hideWeekend && (wd === 0 || wd === 6)) continue;
+
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
                 const dayDiv = document.createElement('div');
                 dayDiv.className = 'calendar-day';
-                
-                if(year === realToday.getFullYear() && month === realToday.getMonth() && date === realToday.getDate()) {
+                dayDiv.oncontextmenu = (e) => showCalDayMenu(e, dateStr);
+                dayDiv.title = '우클릭: 이 날짜에 일정 추가';
+
+                if (year === realToday.getFullYear() && month === realToday.getMonth() && date === realToday.getDate()) {
                     dayDiv.classList.add('today-highlight');
                 }
 
-                const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-                let dateHtml = `<span class="calendar-date">${date}</span>`;
-                
-                const dayTasks = tasks.filter(t => t.dueDate === dateStr);
-                dayTasks.forEach(t => {
-                    const bgColor = getPriorityColor(t.priority);
-                    const doneStyle = t.status === '완료됨' ? 'text-decoration: line-through; opacity: 0.5;' : '';
-                    
-                    dateHtml += `<div class="cal-task" style="background-color: ${bgColor}; ${doneStyle}">[${t.priority}순위] ${t.content}</div>`;
+                let html = `<span class="calendar-date">${date}</span>`;
+
+                // 일정을 먼저 (직접 넣은 것이라 눈에 먼저 들어와야 한다)
+                events.filter(ev => ev.date === dateStr).forEach(ev => {
+                    html += `<div class="cal-event" data-ev="${ev.id}" title="${esc(ev.memo || ev.title)}">${esc(ev.title)}</div>`;
                 });
-                
-                dayDiv.innerHTML = dateHtml;
+
+                // 그다음 TO DO 에서 넘어온 업무
+                tasks.filter(t => t.dueDate === dateStr).forEach(t => {
+                    const done = t.status === '완료됨' ? 'text-decoration: line-through; opacity: 0.5;' : '';
+                    html += `<div class="cal-task" style="${done}" title="${esc(t.content || '')}">${esc(t.content || '')}</div>`;
+                });
+
+                dayDiv.innerHTML = html;
+
+                dayDiv.querySelectorAll('.cal-event').forEach(el => {
+                    const id = Number(el.dataset.ev);
+                    el.onclick = (e) => { e.stopPropagation(); openEventModal(id); };
+                    el.oncontextmenu = (e) => showCalEventMenu(e, id);
+                });
+
                 grid.appendChild(dayDiv);
             }
         }
