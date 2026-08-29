@@ -56,6 +56,12 @@
         .toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(44,62,80,0.95); color: #fff; padding: 7px 16px; border-radius: 16px; font-size: 12px; font-weight: bold; display: none; }
         .pane { display: none; }
         .pane.active { display: block; }
+        /* 📌 버튼·입력칸은 글꼴을 상속받지 않는다. 전부 한 번에 지정한다.
+           (탭 버튼이 Arial 로 남아 있었다) */
+        body, h1, h2, h3, h4, h5, p, span, div, li, td, th, label,
+        button, input, select, textarea, optgroup {
+            font-family: "Pretendard", "Malgun Gothic", -apple-system, system-ui, sans-serif;
+        }
     </style>
 </head>
 <body>
