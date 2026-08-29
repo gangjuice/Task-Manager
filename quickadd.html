@@ -43,6 +43,9 @@
         #qMemo  { flex: 1; min-width: 0; }
         #tContent { flex: 1; min-width: 0; }
         #tDue { width: 150px; font-family: 'Consolas', monospace; }
+        #rTitle { flex: 1; min-width: 0; }
+        #rDate { flex: 1; font-family: 'Consolas', monospace; }
+        #rTime { width: 130px; font-family: 'Consolas', monospace; }
 
         .actions { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
         .hint { font-size: 11px; color: #95a5a6; }
@@ -69,6 +72,7 @@
         <div class="head">
             <div class="tabs">
                 <button class="tab active" id="tabTask" onclick="switchMode('task')">✅ 업무</button>
+                <button class="tab" id="tabRemind" onclick="switchMode('remind')">🔔 리마인더</button>
                 <button class="tab" id="tabContact" onclick="switchMode('contact')">📇 연락처</button>
             </div>
             <button class="close" onclick="closeSelf()" title="닫기 (Esc)">✖</button>
@@ -90,6 +94,17 @@
             <div class="row">
                 <input type="text" id="tContent" placeholder="업무 내용">
                 <input type="date" id="tDue">
+            </div>
+        </div>
+
+
+        <div class="pane" id="paneRemind">
+            <div class="row">
+                <input type="text" id="rTitle" placeholder="무엇을 알려드릴까요">
+            </div>
+            <div class="row">
+                <input type="date" id="rDate">
+                <input type="time" id="rTime">
             </div>
         </div>
 
@@ -139,14 +154,32 @@
             toastTimer = setTimeout(() => { el.style.display = 'none'; }, 1600);
         }
 
+        // 지금부터 한 시간 뒤 정각. 대개 "이따가"를 뜻하므로 기본값으로 알맞다.
+        function defaultRemindTime() {
+            const d = new Date();
+            d.setHours(d.getHours() + 1, 0, 0, 0);
+            const p = n => String(n).padStart(2, '0');
+            return p(d.getHours()) + ':' + p(d.getMinutes());
+        }
+
         function switchMode(m) {
             mode = m;
-            $('tabContact').classList.toggle('active', m === 'contact');
-            $('tabTask').classList.toggle('active', m === 'task');
-            $('paneContact').classList.toggle('active', m === 'contact');
-            $('paneTask').classList.toggle('active', m === 'task');
+            [['tabTask', 'paneTask', 'task'],
+             ['tabRemind', 'paneRemind', 'remind'],
+             ['tabContact', 'paneContact', 'contact']].forEach(([tab, pane, key]) => {
+                $(tab).classList.toggle('active', m === key);
+                $(pane).classList.toggle('active', m === key);
+            });
+
             if (m === 'contact') $('qName').focus();
-            else { if (!$('tDue').value) $('tDue').value = todayStr(); $('tContent').focus(); }
+            else if (m === 'remind') {
+                if (!$('rDate').value) $('rDate').value = todayStr();
+                if (!$('rTime').value) $('rTime').value = defaultRemindTime();
+                $('rTitle').focus();
+            } else {
+                if (!$('tDue').value) $('tDue').value = todayStr();
+                $('tContent').focus();
+            }
         }
 
         async function loadContacts() {
@@ -170,9 +203,16 @@
             $('qCustomerNo').value = '';
             $('qMemo').value = '';
             $('tContent').value = '';
-            $('tDue').value = todayStr();     // 마감기한 기본값은 오늘
+            $('tDue').value = todayStr();
+        $('rDate').value = todayStr();
+        $('rTime').value = defaultRemindTime();     // 마감기한 기본값은 오늘
+            $('rTitle').value = '';
+            $('rDate').value = todayStr();
+            $('rTime').value = defaultRemindTime();
             $('dup').style.display = 'none';
-            if (mode === 'contact') $('qName').focus(); else $('tContent').focus();
+            if (mode === 'contact') $('qName').focus();
+            else if (mode === 'remind') $('rTitle').focus();
+            else $('tContent').focus();
         }
 
         function closeSelf() { ipcRenderer.send('close-quick-add'); }
@@ -237,11 +277,28 @@
             }
         }
 
-        function save() { mode === 'contact' ? saveContact() : saveTask(); }
+        async function saveReminder() {
+            const title = $('rTitle').value.trim();
+            if (!title) { showToast('무엇을 알려드릴지 적어주세요'); $('rTitle').focus(); return; }
+
+            const res = await ipcRenderer.invoke('add-event', {
+                title: title, date: $('rDate').value, time: $('rTime').value
+            });
+            if (res && res.ok) {
+                showToast($('rTime').value + ' 에 알려드릴게요');
+                clearFields();
+            }
+        }
+
+        function save() {
+            if (mode === 'contact') saveContact();
+            else if (mode === 'remind') saveReminder();
+            else saveTask();
+        }
 
         $('qPhone').addEventListener('input', checkDuplicate);
 
-        ['qName', 'qPhone', 'qCustomerNo', 'qMemo', 'tContent', 'tDue'].forEach(id => {
+        ['qName', 'qPhone', 'qCustomerNo', 'qMemo', 'tContent', 'tDue', 'rTitle', 'rDate', 'rTime'].forEach(id => {
             $(id).addEventListener('keydown', (e) => {
                 if (e.isComposing || e.keyCode === 229) return;   // 한글 조합 중엔 가로채지 않는다
                 if (e.key === 'Enter') { e.preventDefault(); save(); }
@@ -251,7 +308,12 @@
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeSelf();
             // Ctrl+Tab 으로 연락처 ↔ 업무 전환
-            if (e.key === 'Tab' && e.ctrlKey) { e.preventDefault(); switchMode(mode === 'contact' ? 'task' : 'contact'); }
+            // Ctrl+Tab 으로 업무 → 리마인더 → 연락처 순환
+            if (e.key === 'Tab' && e.ctrlKey) {
+                e.preventDefault();
+                const order = ['task', 'remind', 'contact'];
+                switchMode(order[(order.indexOf(mode) + 1) % order.length]);
+            }
         });
 
         $('tDue').value = todayStr();

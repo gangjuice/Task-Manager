@@ -191,6 +191,7 @@ app.whenReady().then(async () => {
     createTray();
     applyHotkeyFromSettings();
     notifyDeadlines();
+    startReminderTimer();
 });
 
 ipcMain.handle('get-data-path', () => ({ path: dataFilePath, migratedFrom: migratedFrom }));
@@ -585,3 +586,142 @@ ipcMain.handle('set-hotkey', async (event, accel) => {
 });
 
 app.on('will-quit', () => { globalShortcut.unregisterAll(); });
+
+// ══════════════════════════════════════════════════════════════════
+// 리마인더 — 일정에 시각이 있으면 그때 알린다
+// ══════════════════════════════════════════════════════════════════
+
+let reminderWindow = null;
+const snoozed = new Map();   // id → 다시 알릴 시각(ms). 앱을 끄면 사라진다.
+
+function nowStamp2() {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+           'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function todayStr2() {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+// 알림 창은 화면 한가운데. 포커스를 가져간다 — 놓치면 안 되는 약속이라서.
+function showReminder(ev, late) {
+    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const b = display.workArea;
+    const W = 420, H = ev.memo ? 260 : 200;
+
+    if (reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
+
+    reminderWindow = new BrowserWindow({
+        width: W, height: H,
+        x: Math.round(b.x + (b.width - W) / 2),
+        y: Math.round(b.y + (b.height - H) / 2),
+        frame: false, transparent: true, resizable: false,
+        alwaysOnTop: true, skipTaskbar: true,
+        webPreferences: { nodeIntegration: true, contextIsolation: false }
+    });
+    reminderWindow.setAlwaysOnTop(true, 'screen-saver');
+    reminderWindow.loadFile('reminder.html');
+    reminderWindow.once('ready-to-show', () => {
+        reminderWindow.show();
+        reminderWindow.focus();
+        reminderWindow.webContents.send('reminder', {
+            id: ev.id, title: ev.title, memo: ev.memo, date: ev.date, time: ev.time, late: !!late
+        });
+    });
+    reminderWindow.on('closed', () => { reminderWindow = null; });
+
+    if (tray) {
+        try {
+            tray.displayBalloon({
+                icon: nativeImage.createFromPath(iconPath),
+                title: '🔔 ' + (ev.time || '') + ' 알림',
+                content: ev.title || ''
+            });
+        } catch (e) {}
+    }
+}
+
+// 알린 것은 파일에 표시해 둔다. 앱을 껐다 켜도 같은 알림이 다시 뜨지 않는다.
+async function markNotified(id) {
+    await withDoc(doc => {
+        const list = Array.isArray(doc.events) ? doc.events : [];
+        const ev = list.find(x => x.id === id);
+        if (ev) ev.notifiedAt = nowStamp2();
+    });
+    BrowserWindow.getAllWindows().forEach(win => {
+        win.webContents.send('reminder-updated');
+    });
+}
+
+ipcMain.on('reminder-done', async (event, id) => {
+    if (reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
+    if (id) await markNotified(id);
+});
+
+ipcMain.on('reminder-snooze', (event, id) => {
+    if (reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
+    if (id) snoozed.set(id, Date.now() + 10 * 60 * 1000);
+});
+
+// 1분마다 확인한다. 초 단위로 볼 이유가 없다.
+async function checkReminders() {
+    const doc = await readDoc();
+    const list = Array.isArray(doc.events) ? doc.events : [];
+    const today = todayStr2();
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+
+    for (const ev of list) {
+        if (!ev.time || ev.notifiedAt) continue;
+
+        const snoozeUntil = snoozed.get(ev.id);
+        if (snoozeUntil) {
+            if (Date.now() < snoozeUntil) continue;
+            snoozed.delete(ev.id);
+            showReminder(ev, false);
+            return;                      // 한 번에 하나만 띄운다
+        }
+
+        if (ev.date !== today) continue;
+        const [h, m] = String(ev.time).split(':').map(Number);
+        if (isNaN(h) || isNaN(m)) continue;
+        if (h * 60 + m > nowMin) continue;   // 아직 시각 전
+
+        // 지난 시각인데 아직 안 알린 것 = 앱이 꺼져 있던 동안 지나간 알림
+        showReminder(ev, h * 60 + m < nowMin - 1);
+        return;
+    }
+}
+
+function startReminderTimer() {
+    checkReminders();
+    setInterval(checkReminders, 60 * 1000);
+}
+
+// 빠른 등록 창에서 리마인더(시각이 있는 일정)를 넣는다.
+ipcMain.handle('add-event', async (event, { title, date, time, memo }) => {
+    const stampNow = nowStamp2();
+    const list = await withDoc(doc => {
+        const events = Array.isArray(doc.events) ? doc.events : [];
+        events.push({
+            id: Date.now(),
+            title: title || '',
+            date: date || todayStr2(),
+            time: time || '',
+            memo: memo || '',
+            createdAt: stampNow.split('T')[0],
+            updatedAt: stampNow
+        });
+        doc.events = events;
+        return events;
+    });
+    BrowserWindow.getAllWindows().forEach(win => {
+        if (win.webContents.id !== event.sender.id) {
+            win.webContents.send('sync-sections', { events: list });
+        }
+    });
+    return { ok: true, count: list.length };
+});
+

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>알림</title>
+    <style>
+        @font-face {
+            font-family: "Pretendard";
+            src: url("assets/fonts/PretendardVariable.woff2") format("woff2-variations");
+            font-weight: 45 920;
+            font-style: normal;
+            font-display: swap;
+        }
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: transparent; }
+        body, button {
+            font-family: "Pretendard", "Malgun Gothic", -apple-system, system-ui, sans-serif;
+        }
+        .card {
+            height: 100%; box-sizing: border-box;
+            background: #fff; border: 1px solid #cfd8dd; border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.32);
+            padding: 20px 22px 18px; display: flex; flex-direction: column;
+        }
+        .top { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+        .top .badge {
+            background: #E67E22; color: #fff; font-size: 11px; font-weight: 700;
+            padding: 3px 9px; border-radius: 10px;
+        }
+        .top .time { font-size: 12.5px; color: #7f8c8d; font-weight: 600; }
+        .top .close {
+            margin-left: auto; background: transparent; border: none; color: #95a5a6;
+            font-size: 15px; cursor: pointer;
+        }
+        .top .close:hover { color: #e74c3c; }
+
+        h1 { margin: 0 0 8px; font-size: 20px; line-height: 1.35; color: #2c3e50; word-break: keep-all; }
+        .memo {
+            font-size: 13.5px; color: #5b6b76; line-height: 1.6; white-space: pre-wrap;
+            max-height: 90px; overflow-y: auto; margin: 0 0 6px;
+        }
+        .actions { display: flex; gap: 8px; margin-top: auto; padding-top: 14px; }
+        .actions button {
+            flex: 1; padding: 11px 0; border-radius: 6px; font-size: 13.5px; font-weight: 700;
+            cursor: pointer; border: 1px solid transparent;
+        }
+        .snooze { background: #fff; color: #2c3e50; border-color: #c8d1d8; }
+        .snooze:hover { background: #f1f5f7; }
+        .ok { background: #2ecc71; color: #fff; }
+        .ok:hover { background: #27ae60; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="top">
+            <span class="badge">🔔 알림</span>
+            <span class="time" id="time"></span>
+            <button class="close" onclick="done()" title="닫기 (Esc)">✖</button>
+        </div>
+        <h1 id="title"></h1>
+        <p class="memo" id="memo"></p>
+        <div class="actions">
+            <button class="snooze" onclick="snooze()">10분 뒤 다시</button>
+            <button class="ok" onclick="done()">확인</button>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        let payload = null;
+
+        ipcRenderer.on('reminder', (event, data) => {
+            payload = data;
+            document.getElementById('title').innerText = data.title || '(내용 없음)';
+            document.getElementById('time').innerText =
+                (data.late ? '지난 알림 · ' : '') + (data.date || '') + (data.time ? ' ' + data.time : '');
+            const memoEl = document.getElementById('memo');
+            memoEl.innerText = data.memo || '';
+            memoEl.style.display = data.memo ? 'block' : 'none';
+        });
+
+        function done()   { ipcRenderer.send('reminder-done', payload && payload.id); }
+        function snooze() { ipcRenderer.send('reminder-snooze', payload && payload.id); }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Enter') done();
+        });
+    </script>
+</body>
+</html>

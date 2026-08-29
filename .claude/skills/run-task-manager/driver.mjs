@@ -45,7 +45,7 @@ const COMMANDS = {
   async use(which) {
     if (!app) return console.log('ERROR: 먼저 launch 하세요');
     const target = (which || '').trim();
-    const byUrl = { widget: 'widget.html', phone: 'phone.html', quickadd: 'quickadd.html' }[target];
+    const byUrl = { widget: 'widget.html', quickadd: 'quickadd.html', reminder: 'reminder.html' }[target];
     if (!byUrl) { page = main; return console.log('대상: 메인'); }
     const w = app.windows().find(x => x.url().includes(byUrl));
     if (!w) return console.log(target + ' 창이 없습니다. 열려 있는 창: ' + app.windows().map(x => x.url().split('/').pop()).join(', '));

@@ -704,9 +704,13 @@
                     <input type="text" id="ev_title" placeholder="ex) ○○시청 현장 점검"
                            onkeydown="if(event.key==='Enter' && !event.isComposing) saveEvent();">
                 </div>
-                <div class="form-group full-width">
+                <div class="form-group">
                     <label>날짜</label>
                     <input type="date" id="ev_date">
+                </div>
+                <div class="form-group">
+                    <label>시각 (넣으면 그 시각에 알려줍니다)</label>
+                    <input type="time" id="ev_time">
                 </div>
                 <div class="form-group full-width">
                     <label>메모 (선택)</label>
@@ -1641,6 +1645,7 @@
             document.getElementById('evModalTitle').innerText = ev ? '✏️ 일정 수정' : '➕ 새 일정';
             document.getElementById('ev_title').value = ev ? (ev.title || '') : '';
             document.getElementById('ev_date').value  = ev ? (ev.date || '') : (presetDate || getTodayString());
+            document.getElementById('ev_time').value  = ev ? (ev.time || '') : '';
             document.getElementById('ev_memo').value  = ev ? (ev.memo || '') : '';
             document.getElementById('ev_deleteBtn').style.display = ev ? 'inline-block' : 'none';
 
@@ -1691,6 +1696,7 @@
         function saveEvent() {
             const title = document.getElementById('ev_title').value.trim();
             const date  = document.getElementById('ev_date').value;
+            const time  = document.getElementById('ev_time').value;
             const memo  = document.getElementById('ev_memo').value.trim();
 
             if (!title) { showToast('일정 내용을 적어주세요'); document.getElementById('ev_title').focus(); return; }
@@ -1698,10 +1704,13 @@
 
             if (editingEventId) {
                 const ev = events.find(e => e.id === editingEventId);
-                if (ev) Object.assign(ev, { title: title, date: date, memo: memo, updatedAt: nowStamp() });
+                // 시각이나 날짜를 고치면 다시 알려야 하므로 알림 표시를 지운다.
+                if (ev) Object.assign(ev, { title: title, date: date, time: time, memo: memo,
+                                           notifiedAt: (ev.date === date && ev.time === time) ? ev.notifiedAt : '',
+                                           updatedAt: nowStamp() });
             } else {
                 events.push({
-                    id: Date.now(), title: title, date: date, memo: memo,
+                    id: Date.now(), title: title, date: date, time: time, memo: memo,
                     createdAt: getTodayString(), updatedAt: nowStamp()
                 });
             }
@@ -1820,7 +1829,8 @@
 
                 // 일정을 먼저 (직접 넣은 것이라 눈에 먼저 들어와야 한다)
                 events.filter(ev => ev.date === dateStr).forEach(ev => {
-                    html += `<div class="cal-event" data-ev="${ev.id}" title="${esc(ev.memo || ev.title)}">${esc(ev.title)}</div>`;
+                    const t = ev.time ? '<b>' + esc(ev.time) + '</b> ' : '';
+                    html += `<div class="cal-event" data-ev="${ev.id}" title="${esc(ev.memo || ev.title)}">${t}${esc(ev.title)}</div>`;
                 });
 
                 // 그다음 TO DO 에서 넘어온 업무
@@ -2693,6 +2703,12 @@
         }
 
         // 트레이 → 연락처 목록
+        // 알림을 확인하면 그 일정에 표시가 남으므로 다시 읽어 그린다.
+        ipcRenderer.on('reminder-updated', async () => {
+            const doc = await ipcRenderer.invoke('load-data');
+            if (doc && Array.isArray(doc.events)) { events = doc.events; renderCalendar(); }
+        });
+
         ipcRenderer.on('open-contacts-tab', () => {
             const btns = document.querySelectorAll('.tab-btn');
             if (btns[4]) btns[4].click();

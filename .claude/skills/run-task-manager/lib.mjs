@@ -26,7 +26,7 @@ export function electronBinary() {
   return bin;
 }
 
-const APP_FILES = ['main.js', 'index.html', 'widget.html', 'quickadd.html', 'package.json'];
+const APP_FILES = ['main.js', 'index.html', 'widget.html', 'quickadd.html', 'reminder.html', 'package.json'];
 const DATA_LINE_OLD = "const dataFilePath = path.join(app.getPath('documents'), '업무관리_데이터.json');";
 const DATA_LINE_NEW = "const dataFilePath = process.env.TM_DATA_FILE || path.join(app.getPath('documents'), '업무관리_데이터.json');";
 
