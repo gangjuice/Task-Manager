@@ -813,6 +813,15 @@
         </div>
 
         <div class="setting-section">
+            <h3>💾 데이터 저장 위치</h3>
+            <p style="font-size: 13px; color: var(--c-ink-soft); margin-bottom: 10px;">
+                업무 · 연락처 · 프로젝트가 저장되는 파일입니다. 자동으로 저장되니 따로 하실 일은 없습니다.
+            </p>
+            <p id="dataPathText" style="font-family: Consolas, monospace; font-size: 12px; color: var(--c-ink-faint); word-break: break-all; margin-bottom: 12px;"></p>
+            <button type="button" class="btn btn-secondary" onclick="openDataFolder()">📂 데이터 폴더 열기</button>
+        </div>
+
+        <div class="setting-section">
             <h3>📅 캘린더</h3>
             <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 10px;">
                 주말을 숨기면 캘린더가 월~금 5칸으로 바뀌어 평일 일정이 더 크게 보입니다.
@@ -1006,6 +1015,12 @@
             const isAutoStart = await ipcRenderer.invoke('get-autostart');
             document.getElementById('autoStartCheckbox').checked = isAutoStart;
             document.getElementById('hideWeekendCheckbox').checked = !!calendarOptions.hideWeekend;
+
+            const dp = await ipcRenderer.invoke('get-data-path');
+            document.getElementById('dataPathText').innerText = dp.path;
+            if (dp.migratedFrom) {
+                showToast('데이터를 OneDrive 밖으로 옮겼습니다');
+            }
             
             document.getElementById('memoPad').value = savedMemo;
             renderCategories();
@@ -2606,6 +2621,10 @@
 
 
         // ── 전화 아이콘 · 단축키 설정 ─────────────────────────────────
+
+        function openDataFolder() {
+            ipcRenderer.send('open-data-folder');
+        }
 
         async function loadHotkeySettings() {
             const s = await ipcRenderer.invoke('get-hotkey');

@@ -1,8 +1,19 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, globalShortcut, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, globalShortcut, screen, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-const dataFilePath = path.join(app.getPath('documents'), '업무관리_데이터.json');
+// 📌 개발 실행과 설치본이 같은 데이터 폴더를 쓰도록 앱 이름을 고정한다.
+// 이걸 안 하면 개발 중에는 ...\\Roaming\\Electron, 설치본은 ...\\Roaming\\Task Manager 를 써서
+// 데이터가 사라진 것처럼 보인다. getPath('userData') 보다 먼저 불러야 한다.
+app.setName('Task Manager');
+
+// 📌 예전에는 '내 문서'에 저장했는데, 윈도우 폴더 보호가 켜져 있으면 내 문서 자체가
+// OneDrive 로 리디렉션된다. 저장할 때마다 동기화가 걸려 파일이 잠기고, rename 이 실패해
+// 직접 쓰기로 물러나는 일이 생긴다. 프로그램 데이터의 표준 위치로 옮긴다.
+const dataDir = app.getPath('userData');
+const dataFilePath = process.env.TM_DATA_FILE || path.join(dataDir, '업무관리_데이터.json');
+const legacyDataPath = path.join(app.getPath('documents'), '업무관리_데이터.json');
+let migratedFrom = null;
 const iconPath = path.join(__dirname, 'assets', 'rocket.png');
 
 let mainWindow;
@@ -86,11 +97,31 @@ async function notifyTrayOnce() {
     } catch (e) {}
 }
 
-app.whenReady().then(() => {
+// 예전 위치(내 문서 = OneDrive)에 있던 파일을 새 위치로 한 번만 옮긴다.
+// 원본은 지우지 않는다. 옮기다 잘못돼도 되돌릴 수 있어야 한다.
+async function migrateLegacyData() {
+    if (process.env.TM_DATA_FILE) return;   // 테스트용 경로는 건드리지 않는다
+    try { await fs.promises.access(dataFilePath); return; } catch (e) {}   // 이미 새 위치에 있음
+    try {
+        const raw = await fs.promises.readFile(legacyDataPath, 'utf8');
+        await fs.promises.mkdir(dataDir, { recursive: true });
+        await fs.promises.writeFile(dataFilePath, raw);
+        migratedFrom = legacyDataPath;
+        console.log('데이터를 새 위치로 옮겼습니다:', legacyDataPath, '→', dataFilePath);
+    } catch (e) { /* 예전 파일이 없으면 그냥 새로 시작한다 */ }
+}
+
+app.whenReady().then(async () => {
+    await fs.promises.mkdir(dataDir, { recursive: true }).catch(() => {});
+    await migrateLegacyData();
     createWindow();
     createTray();
     applyHotkeyFromSettings();
 });
+
+ipcMain.handle('get-data-path', () => ({ path: dataFilePath, migratedFrom: migratedFrom }));
+
+ipcMain.on('open-data-folder', () => { shell.openPath(path.dirname(dataFilePath)); });
 
 // 📌 창이 하나도 없어도 앱을 끝내지 않는다 (기본 동작은 종료).
 // 트레이에 상주하는 것이 이 앱의 정상 상태다.
