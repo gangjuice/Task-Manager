@@ -553,7 +553,8 @@
 
     <div id="calDayMenu" class="context-menu">
         <ul>
-            <li class="edit-btn" onclick="openEventModal(null, ctxCalDate)">➕ 이 날짜에 일정 추가</li>
+            <li class="edit-btn" onclick="openEventModal(null, ctxCalDate)">🟠 이 날짜에 일정 추가</li>
+            <li onclick="openCalTaskModal(ctxCalDate)">🔵 이 날짜 마감으로 업무 추가</li>
         </ul>
     </div>
 
@@ -562,6 +563,34 @@
             <li class="edit-btn" onclick="openEventModal(ctxEventId)">✏️ 수정하기</li>
             <li class="delete-btn" onclick="deleteEvent(ctxEventId)">🗑️ 삭제하기</li>
         </ul>
+    </div>
+
+    <div id="calTaskModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-header">
+                <h2>🔵 업무 추가</h2>
+                <button class="btn-close" onclick="closeCalTaskModal()">✖</button>
+            </div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>업무 내용</label>
+                    <input type="text" id="ct_content" placeholder="해야 할 일"
+                           onkeydown="if(event.key==='Enter' && !event.isComposing) saveCalTask();">
+                </div>
+                <div class="form-group full-width">
+                    <label>마감기한</label>
+                    <input type="date" id="ct_due">
+                </div>
+                <div class="form-group full-width">
+                    <label>분류</label>
+                    <select id="ct_category"></select>
+                </div>
+                <div class="form-group full-width" style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button type="button" class="btn btn-ghost" onclick="closeCalTaskModal()">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="saveCalTask()">등록하기</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="eventModal" class="modal-overlay">
@@ -643,7 +672,7 @@
                 <button type="button" class="btn btn-primary" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
             </div>
         </div>
-        <p class="page-hint">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</p>
+        <p class="page-hint">💡 열 제목 좌클릭: 정렬 · 우클릭: 필터 / 업무 줄 우클릭: 수정·삭제</p>
 
         <div class="form-container" id="taskFormContainer" style="display: none;">
             <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
@@ -1386,12 +1415,21 @@
             }
         }
 
+        // 📌 자동 저장인데 아무 신호가 없으면 저장됐는지 알 수 없다. 조용히 알려준다.
+        function setMemoStatus(text) {
+            const el = document.getElementById('memoStatus');
+            if (el) el.innerText = text;
+        }
+
         document.getElementById('memoPad').addEventListener('input', function() {
             savedMemo = this.value;
+            setMemoStatus('입력 중…');
             if (memoSaveTimer) clearTimeout(memoSaveTimer);
             memoSaveTimer = setTimeout(() => {
                 memoSaveTimer = null;
                 persistMemo();
+                const d = new Date(), pad = n => String(n).padStart(2, '0');
+                setMemoStatus('저장됨 · ' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
             }, 500);
         });
 
@@ -1544,6 +1582,41 @@
         function closeEventModal() {
             document.getElementById('eventModal').style.display = 'none';
             editingEventId = null;
+        }
+
+        function openCalTaskModal(dateStr) {
+            const sel = document.getElementById('ct_category');
+            sel.innerHTML = categories.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+            document.getElementById('ct_content').value = '';
+            document.getElementById('ct_due').value = dateStr || getTodayString();
+            document.getElementById('calTaskModal').style.display = 'flex';
+            document.getElementById('ct_content').focus();
+        }
+
+        function closeCalTaskModal() {
+            document.getElementById('calTaskModal').style.display = 'none';
+        }
+
+        function saveCalTask() {
+            const content = document.getElementById('ct_content').value.trim();
+            if (!content) { showToast('업무 내용을 적어주세요'); return; }
+
+            tasks.push({
+                id: Date.now(),
+                regDate: getTodayString(),
+                dueDate: document.getElementById('ct_due').value,
+                content: content,
+                category: document.getElementById('ct_category').value,
+                firstAction: '', importance: '높음', urgency: '높음',
+                priority: getPriority('높음', '높음'),
+                timeReq: '', status: '대기중', remarks: ''
+            });
+
+            saveSections({ tasks: tasks });
+            renderAllTables();
+            renderCalendar();
+            closeCalTaskModal();
+            showToast('업무를 등록했습니다');
         }
 
         function saveEvent() {
@@ -3650,6 +3723,33 @@
                 pasteTSV(e.clipboardData.getData('text/plain'));
             });
         })();
+
+        // ── 전역 단축키 ───────────────────────────────────────────────
+        // 어느 탭에서도 같은 손가락이 통하도록. 프로젝트 표의 Ctrl+Z 등은 건드리지 않는다.
+        window.addEventListener('keydown', function (e) {
+            if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+
+            // Ctrl+1~7 : 탭 이동
+            if (e.key >= '1' && e.key <= '7') {
+                const btns = document.querySelectorAll('.tab-btn');
+                const idx = Number(e.key) - 1;
+                if (btns[idx]) { e.preventDefault(); btns[idx].click(); }
+                return;
+            }
+
+            // Ctrl+N : 지금 탭의 주요 동작
+            if (e.key === 'n' || e.key === 'N') {
+                const active = document.querySelector('.tab-content.active');
+                if (!active) return;
+                e.preventDefault();
+                if (active.id === 'dashboard') openEventModal(null);
+                else if (active.id === 'master') toggleTaskForm();
+                else if (active.id === 'contacts') openContactForm(null);
+                else if (active.id === 'sheets') { if (curSheet()) addSheetRow(); else openNewSheet(); }
+                else if (active.id === 'brainstorm') document.getElementById('memoPad').focus();
+                return;
+            }
+        });
 
         initApp();
     </script>
