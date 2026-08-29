@@ -2950,9 +2950,9 @@
                 id: uid('s'), name: name, columns: columns, rows: [],
                 createdAt: getTodayString(), updatedAt: nowStamp()
             };
-            if (kind === 'template') {
-                for (let i = 0; i < 3; i++) sheet.rows.push({ id: uid('r'), cells: {} });
-            }
+            // 서식으로 시작하든 빈 표로 시작하든 20줄을 미리 깔아 둔다.
+            // 빈 표는 열이 생기기 전까지 이 줄들이 보이지 않는다.
+            for (let i = 0; i < 20; i++) sheet.rows.push({ id: uid('r'), cells: {} });
 
             sheets.push(sheet);
             activeSheetId = sheet.id;
@@ -3533,6 +3533,8 @@
 
             // 📌 빈 표에 붙여넣으면 첫 줄을 열 이름으로 삼는다.
             if (!s.columns.length) {
+                // 미리 깔아 둔 빈 줄이 붙여넣은 자료 위에 남지 않도록 치운다.
+                if (s.rows.every(r => Object.keys(r.cells || {}).length === 0)) s.rows = [];
                 grid[0].forEach(name => {
                     s.columns.push({ id: uid('c'), name: String(name).trim() || '열', type: 'text' });
                 });
