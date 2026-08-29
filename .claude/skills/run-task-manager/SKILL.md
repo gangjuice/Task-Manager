@@ -19,6 +19,12 @@ Task Manager는 빌드 단계가 없는 순수 바닐라 Electron 앱입니다(`
 > 앱 파일을 `%TEMP%\task-manager-sandbox`로 복사하고 저장 경로만 `TM_DATA_FILE`로 우회해서 띄웁니다.
 > **사용자의 실제 데이터는 건드리지 않습니다.** 진짜 데이터로 띄우려면 `launch --real`을 쓰세요.
 
+> ⚠️ **smoke.mjs 는 2026-08-29 기준 낡았습니다.**
+> 웹(claude.ai)에서 UI를 개편해 탭 구성(8개 → 7개, 완료 탭이 TO DO 로 통합)과
+> TO DO 열 구성(12개 → 7개)이 바뀌었고, 연락처 빠른 입력은 제거됐습니다.
+> 그대로 돌리면 앱이 멀쩡해도 가짜 실패가 납니다. 쓰기 전에 새 UI 에 맞춰 갱신하세요.
+> driver.mjs 는 정상 동작합니다.
+
 ## Prerequisites
 
 ```bash
