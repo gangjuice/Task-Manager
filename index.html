@@ -267,6 +267,10 @@
             font-size: var(--fs-body); line-height: 1.9;
         }
         .empty-state b { color: var(--c-ink); }
+        .sheet-rename {
+            padding: 6px 12px; border: 2px solid var(--c-accent); border-radius: 4px 4px 0 0;
+            font-size: 13px; font-weight: bold; font-family: inherit; width: 200px; outline: none;
+        }
     </style>
 </head>
 <body>
@@ -461,6 +465,13 @@
                 <button class="btn btn-danger" type="button" style="width:150px" onclick="confirmDeleteListItem()">삭제하기</button>
             </div>
         </div>
+    </div>
+
+    <div id="sheetTabMenu" class="context-menu">
+        <ul>
+            <li class="edit-btn" onclick="startSheetRename(ctxSheetId)">✏️ 이름 변경</li>
+            <li class="delete-btn" onclick="deleteSheet(ctxSheetId)">🗑️ 프로젝트 삭제</li>
+        </ul>
     </div>
 
     <div id="colFilterMenu" class="context-menu">
@@ -730,8 +741,11 @@
     <div id="sheets" class="tab-content">
         <div class="page-head">
             <h2>📊 프로젝트</h2>
+            <div class="page-actions">
+                <button type="button" class="btn btn-primary" onclick="openNewSheet()">➕ 새 프로젝트</button>
+            </div>
         </div>
-        <p class="page-hint">💡 열 제목 좌클릭: 정렬 · 우클릭: 필터·열 편집 / 행 번호 드래그: 순서 변경 · 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 · Ctrl+Z 되돌리기</p>
+        <p class="page-hint">💡 프로젝트 이름 우클릭: 이름 변경·삭제 / 열 제목 좌클릭: 정렬 · 우클릭: 필터·열 편집 / 행 번호 드래그: 순서 변경 · 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 · Ctrl+Z 되돌리기</p>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -3018,26 +3032,44 @@
             renderSheets();
         }
 
-        function renameSheet() {
+        // 이름 변경은 프로젝트 이름을 더블클릭해서 그 자리에서 고친다.
+        function startSheetRename(id) {
+            if (id !== activeSheetId) switchSheet(id);
+            const btn = document.querySelector('#sheetBar .sheet-tab.active');
             const s = curSheet();
-            if (!s) return;
-            const el = document.getElementById('sheetNameInput');
-            const v = el.value.trim();
-            if (!v || v === s.name) { renderSheetBar(); return; }
-            pushUndo();
-            s.name = v;
-            s.updatedAt = nowStamp();
-            renderSheetBar();
-            saveSheets();
+            if (!btn || !s) return;
+            btn.outerHTML = '<input type="text" id="sheetRenameInput" class="sheet-rename"' +
+                ' value="' + esc(s.name) + '" onblur="commitSheetRename()"' +
+                ' onkeydown="if(event.key===\'Enter\' && !event.isComposing) this.blur();' +
+                ' if(event.key===\'Escape\') { this.dataset.cancel=1; this.blur(); }">';
+            const inp = document.getElementById('sheetRenameInput');
+            inp.focus();
+            inp.select();
         }
 
-        function deleteSheet() {
+        function commitSheetRename() {
+            const inp = document.getElementById('sheetRenameInput');
+            if (!inp) return;
+            const cancel = inp.dataset.cancel;
+            const v = inp.value.trim();
             const s = curSheet();
+            if (!cancel && s && v && v !== s.name) {
+                pushUndo();
+                s.name = v;
+                s.updatedAt = nowStamp();
+                saveSheets();
+                showToast('프로젝트 이름을 바꿨습니다');
+            }
+            renderSheetBar();
+        }
+
+        function deleteSheet(id) {
+            const s = sheets.find(x => x.id === (id || activeSheetId));
             if (!s) return;
             if (!confirm('\'' + s.name + '\' 프로젝트를 삭제할까요?\n행 ' + s.rows.length + '개가 함께 사라집니다.\n(Ctrl+Z 로 되돌릴 수 있습니다)')) return;
             pushUndo();
             sheets = sheets.filter(x => x.id !== s.id);
-            activeSheetId = sheets.length ? sheets[0].id : null;
+            if (activeSheetId === s.id) activeSheetId = sheets.length ? sheets[0].id : null;
             sheetSort = null; sheetFilters = {}; sel = null;
             renderSheets();
             saveSheets();
@@ -3208,6 +3240,18 @@
         // ── 우클릭 메뉴 ───────────────────────────────────────────────
 
         let lastMenuX = 0, lastMenuY = 0;
+        let ctxSheetId = null;
+
+        function showSheetTabMenu(e, id) {
+            e.preventDefault();
+            e.stopPropagation();
+            ctxSheetId = id;
+            hideSheetMenus();
+            const m = document.getElementById('sheetTabMenu');
+            m.style.display = 'block';
+            m.style.left = e.pageX + 'px';
+            m.style.top = e.pageY + 'px';
+        }
 
         function showColMenu(e, index) {
             e.preventDefault();
@@ -3239,7 +3283,7 @@
         }
 
         function hideSheetMenus() {
-            ['colContextMenu', 'rowContextMenu2', 'colFilterMenu'].forEach(id => {
+            ['colContextMenu', 'rowContextMenu2', 'colFilterMenu', 'sheetTabMenu'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -3599,17 +3643,17 @@
             if (!bar) return;
             const s = curSheet();
 
-            bar.innerHTML =
-                sheets.map(x =>
+            // 시트 바는 프로젝트를 고르는 역할만 한다.
+            // 만들기·삭제는 다른 탭과 같은 자리(머리줄 오른쪽)로 옮겼다.
+            bar.innerHTML = sheets.length
+                ? sheets.map(x =>
                     '<button type="button" class="sheet-tab' + (x.id === activeSheetId ? ' active' : '') + '"' +
-                    ' onclick="switchSheet(\'' + x.id + '\')">' + esc(x.name) + '</button>'
-                ).join('') +
-                '<button type="button" class="sheet-tab" style="background:#2ecc71; color:#fff; border-color:#2ecc71;" onclick="openNewSheet()">➕ 새 프로젝트</button>' +
-                (s ? '<span style="margin-left:auto; display:flex; gap:6px; align-items:center;">' +
-                        '<input type="text" id="sheetNameInput" value="' + esc(s.name) + '" style="width:220px; font-size:13px;"' +
-                        ' onblur="renameSheet()" onkeydown="if(event.key===\'Enter\') this.blur();">' +
-                        '<button type="button" class="btn-mini" style="background:#e74c3c;" onclick="deleteSheet()">프로젝트 삭제</button>' +
-                     '</span>' : '');
+                    ' onclick="switchSheet(\'' + x.id + '\')"' +
+                    ' oncontextmenu="showSheetTabMenu(event, \'' + x.id + '\')"' +
+                    ' ondblclick="startSheetRename(\'' + x.id + '\')"' +
+                    ' title="우클릭: 이름 변경 · 삭제">' + esc(x.name) + '</button>'
+                  ).join('')
+                : '<span style="font-size:13px; color:var(--c-ink-faint);">아직 프로젝트가 없습니다 — 오른쪽 위 “➕ 새 프로젝트”로 시작하세요</span>';
         }
 
         function renderGrid() {
