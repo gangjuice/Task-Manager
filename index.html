@@ -251,6 +251,22 @@
         .setting-section h3 { font-size: var(--fs-sub); }
         label { font-size: var(--fs-small); }
         table { font-size: var(--fs-table); }
+        /* ── 탭 머리줄 규격: [제목] ……… [보조] [주요] / 힌트는 그 아래 ── */
+        .page-head {
+            display: flex; align-items: center; gap: var(--sp-3);
+            margin: 0 0 var(--sp-2);
+        }
+        .page-head h2 { margin: 0; }
+        .page-actions { margin-left: auto; display: flex; gap: var(--sp-2); align-items: center; }
+        .page-hint {
+            font-size: var(--fs-small); color: var(--c-ink-faint);
+            margin: 0 0 var(--sp-4); line-height: 1.5;
+        }
+        .empty-state {
+            padding: 40px 20px; text-align: center; color: var(--c-ink-soft);
+            font-size: var(--fs-body); line-height: 1.9;
+        }
+        .empty-state b { color: var(--c-ink); }
     </style>
 </head>
 <body>
@@ -612,15 +628,22 @@
     </div>
 
     <div id="brainstorm" class="tab-content">
-        <h2>💡 메모장</h2>
+        <div class="page-head">
+            <h2>💡 메모장</h2>
+            <div class="page-actions"><span class="page-hint" id="memoStatus" style="margin:0;">자동 저장됨</span></div>
+        </div>
         <textarea id="memoPad" placeholder="아이디어나 회의 내용, 낙서 등을 자유롭게 적어보세요. 입력 시 자동으로 저장됩니다."></textarea>
     </div>
 
     <div id="master" class="tab-content">
-        <h2>✏️ TO DO (진행중인 전체 업무) <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</span></h2>
-
-        <button type="button" class="btn btn-primary" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
-        <button type="button" class="btn btn-secondary" onclick="toggleCompletedSection()" id="completedToggleBtn">✅ 완료된 업무 보기</button>
+        <div class="page-head">
+            <h2>✏️ TO DO</h2>
+            <div class="page-actions">
+                <button type="button" class="btn btn-secondary" onclick="toggleCompletedSection()" id="completedToggleBtn">✅ 완료된 업무 보기</button>
+                <button type="button" class="btn btn-primary" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
+            </div>
+        </div>
+        <p class="page-hint">💡 열 제목 우클릭: 필터 / 업무 줄 우클릭: 수정 및 삭제</p>
 
         <div class="form-container" id="taskFormContainer" style="display: none;">
             <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
@@ -657,12 +680,17 @@
     </div>
 
     <div id="contacts" class="tab-content">
-        <h2>📇 업무용 연락처 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·삭제 / 열 제목 우클릭: 필터</span></h2>
+        <div class="page-head">
+            <h2>📇 연락처</h2>
+            <span class="contact-count" id="contactCount">0명</span>
+            <div class="page-actions">
+                <button type="button" class="btn btn-secondary" onclick="openSearchPopup()">🔍 검색</button>
+                <button type="button" class="btn btn-primary" onclick="openContactForm(null)">➕ 새 연락처</button>
+            </div>
+        </div>
+        <p class="page-hint">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·삭제 / 열 제목 우클릭: 필터 · Ctrl+F 로도 검색됩니다</p>
 
         <div class="contact-toolbar">
-            <span class="contact-count" id="contactCount">0명</span>
-            <button type="button" class="btn btn-secondary" onclick="openSearchPopup()">🔍 검색</button>
-            <button type="button" class="btn btn-primary" onclick="openContactForm(null)">➕ 새 연락처</button>
         </div>
 
         <div id="searchChip" class="search-chip" style="display: none;"></div>
@@ -671,7 +699,10 @@
     </div>
 
     <div id="sheets" class="tab-content">
-        <h2>📊 프로젝트 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 열 제목 좌클릭: 정렬 / 우클릭: 필터·열 편집 / 행 번호 드래그: 순서 변경 / 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 / Ctrl+Z 되돌리기</span></h2>
+        <div class="page-head">
+            <h2>📊 프로젝트</h2>
+        </div>
+        <p class="page-hint">💡 열 제목 좌클릭: 정렬 · 우클릭: 필터·열 편집 / 행 번호 드래그: 순서 변경 · 우클릭: 행 편집 / Ctrl+V 엑셀에서 붙여넣기 · Ctrl+Z 되돌리기</p>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -688,7 +719,10 @@
     </div>
 
     <div id="phrases" class="tab-content">
-        <h2>📋 반복 문구 창고 <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">💡 자주 쓰는 문구를 저장해두고 복사해서 씁니다</span></h2>
+        <div class="page-head">
+            <h2>📋 문구 창고</h2>
+        </div>
+        <p class="page-hint">💡 자주 쓰는 문구를 저장해두고 복사해서 씁니다</p>
 
         <div style="background:#f4f7f6; border-radius:6px; padding:12px; margin-bottom:16px;">
             <textarea id="phraseInput" style="width:100%; height:64px; box-sizing:border-box; resize:vertical; font-family:inherit; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:4px;"
@@ -707,7 +741,9 @@
     </div>
 
     <div id="settings" class="tab-content">
-        <h2>⚙️ 설정 및 데이터 관리</h2>
+        <div class="page-head">
+            <h2>⚙️ 설정</h2>
+        </div>
         
         <div class="setting-section">
             <h3>🚀 컴퓨터 시작 시 자동 실행</h3>
@@ -1208,7 +1244,8 @@
         }
 
         function generateTableHTML(dataList, tableId, isCompletedTab = false) {
-            if(dataList.length === 0) return "<p style='padding: 10px; color:#7f8c8d;'>해당되는 업무가 없습니다.</p>";
+            if(dataList.length === 0) return '<div class="empty-state">아직 등록된 업무가 없습니다.<br>' +
+                '오른쪽 위 <b>➕ 새 업무 등록</b> 또는 <b>F4</b> 로 추가하세요.</div>';
 
             let cols = [
                 { name: "등록일", w: "80px" },
@@ -1325,7 +1362,7 @@
             document.getElementById('content').value = "";
             document.getElementById('remarks').value = "";
 
-            alert("업무가 등록되었습니다.");
+            showToast("업무가 등록되었습니다.");
             
             toggleTaskForm();
         });
@@ -1388,16 +1425,16 @@
         function addCategory() {
             const inputEl = document.getElementById('newCategoryInput');
             const newCat = inputEl.value.trim();
-            if (!newCat) { alert("분류명을 입력해 주세요."); return; }
-            if (categories.includes(newCat)) { alert("이미 존재하는 분류입니다."); return; }
+            if (!newCat) { showToast("분류명을 입력해 주세요."); return; }
+            if (categories.includes(newCat)) { showToast("이미 존재하는 분류입니다."); return; }
             categories.push(newCat);
             updateAndSave();
             inputEl.value = ''; 
-            alert("새로운 분류가 추가되었습니다.");
+            showToast("새로운 분류가 추가되었습니다.");
         }
 
         function deleteCategory(index) {
-            if (categories.length <= 1) { alert("최소 1개의 분류는 남아있어야 합니다."); return; }
+            if (categories.length <= 1) { showToast("최소 1개의 분류는 남아있어야 합니다."); return; }
             if (confirm(`'${categories[index]}' 분류를 삭제하시겠습니까?`)) {
                 categories.splice(index, 1);
                 updateAndSave();
@@ -1450,9 +1487,9 @@
                     renderCategories();
                     renderAllTables();
                     renderCalendar();
-                    alert("데이터를 성공적으로 불러왔습니다!");
+                    showToast("데이터를 성공적으로 불러왔습니다!");
                 } catch (error) {
-                    alert("데이터를 불러오는 중 오류가 발생했습니다.");
+                    showToast("데이터를 불러오는 중 오류가 발생했습니다.");
                 }
                 event.target.value = '';
             };
@@ -1989,7 +2026,7 @@
 
             // 📌 필수값을 두지 않는다. 통화 중엔 이름만 듣거나 번호만 받는 경우가 있다.
             if (!name && !phones.length && !org && !email) {
-                alert('이름이나 연락처 중 하나는 채워주세요.');
+                showToast('이름이나 연락처 중 하나는 채워주세요.');
                 return;
             }
 
@@ -2293,7 +2330,7 @@
             const input = document.getElementById(inputId);
             const v = input.value.trim();
             if (!v) return;
-            if (listOf(kind).includes(v)) { alert('이미 있는 항목입니다.'); return; }
+            if (listOf(kind).includes(v)) { showToast('이미 있는 항목입니다.'); return; }
             if (kind === 'tags') tags.push({ name: v, color: '#3498db' });
             else if (kind === 'orgs') orgs.push(v);
             else projects.push(v);
@@ -2323,7 +2360,7 @@
             const newName = input.value.trim();
             const oldName = listOf(kind)[i];
             if (!newName || newName === oldName) { renderSettingLists(); return; }
-            if (listOf(kind).includes(newName)) { alert('이미 있는 항목입니다.'); return; }
+            if (listOf(kind).includes(newName)) { showToast('이미 있는 항목입니다.'); return; }
 
             if (kind === 'tags') tags[i].name = newName;
             else if (kind === 'orgs') orgs[i] = newName;
@@ -2545,7 +2582,7 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     if (!Array.isArray(data.contacts)) {
-                        alert('연락처가 들어 있는 파일이 아닙니다.');
+                        showToast('연락처가 들어 있는 파일이 아닙니다.');
                         return;
                     }
                     pendingImport = data;
@@ -2553,7 +2590,7 @@
                         '불러올 연락처 <b>' + data.contacts.length + '건</b>, 지금 가지고 있는 연락처 <b>' + contacts.length + '건</b>.<br>어떻게 할까요?';
                     document.getElementById('importContactsModal').style.display = 'flex';
                 } catch (err) {
-                    alert('파일을 읽는 중 오류가 발생했습니다.');
+                    showToast('파일을 읽는 중 오류가 발생했습니다.');
                 } finally {
                     event.target.value = '';
                 }
