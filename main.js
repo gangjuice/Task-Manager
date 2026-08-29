@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, globalShortcut, screen, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, globalShortcut, screen, shell, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -196,6 +196,33 @@ app.whenReady().then(async () => {
 ipcMain.handle('get-data-path', () => ({ path: dataFilePath, migratedFrom: migratedFrom }));
 
 ipcMain.on('open-data-folder', () => { shell.openPath(path.dirname(dataFilePath)); });
+
+// ── 문서 보관함 ───────────────────────────────────────────────────
+// 파일을 복사하지 않고 경로만 기억한다. 여는 것도 윈도우 기본 프로그램에 맡긴다.
+ipcMain.handle('pick-files', async () => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+        title: '보관함에 넣을 파일 고르기',
+        properties: ['openFile', 'multiSelections']
+    });
+    return res.canceled ? [] : res.filePaths;
+});
+
+ipcMain.handle('open-file', async (event, filePath) => {
+    try { await fs.promises.access(filePath); }
+    catch (e) { return { ok: false }; }
+    const err = await shell.openPath(filePath);
+    return { ok: !err };
+});
+
+// 원본이 옮겨졌는지 한 번에 확인한다. 눌렀을 때 알면 늦다.
+ipcMain.handle('check-files', async (event, paths) => {
+    return Promise.all((paths || []).map(async p => {
+        try { await fs.promises.access(p); return false; } catch (e) { return true; }
+    }));
+});
+
+ipcMain.on('show-in-folder', (event, filePath) => { shell.showItemInFolder(filePath); });
+
 
 // 📌 창이 하나도 없어도 앱을 끝내지 않는다 (기본 동작은 종료).
 // 트레이에 상주하는 것이 이 앱의 정상 상태다.

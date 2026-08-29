@@ -314,6 +314,20 @@
         #gs_results { max-height: 46vh; overflow-y: auto; margin-top: 14px; }
         /* 프로젝트 표 검색 */
         #sheetSearchInput { width: 100%; padding: 12px 14px; border: 1px solid var(--c-line-strong); border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+        /* ── 문서 보관함 ── */
+        .doc-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border: 1px solid var(--c-line); border-radius: 5px;
+            margin-bottom: 6px; cursor: pointer; background: var(--c-surface);
+        }
+        .doc-item:hover { background: #F1F5F8; border-color: var(--c-line-strong); }
+        .doc-item.missing { background: #FDF3F2; border-color: #E8C4C0; }
+        .doc-icon { font-size: 17px; flex-shrink: 0; }
+        .doc-name { font-size: 14px; font-weight: 600; color: var(--c-ink); flex-shrink: 0; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .doc-path { font-size: 11.5px; color: var(--c-ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+        .doc-item.missing .doc-path { color: #B3564C; }
+        .doc-rename { font-size: 14px; font-weight: 600; padding: 3px 6px; border: 2px solid var(--c-accent); border-radius: 3px; width: 260px; }
+        #phrases.drop-target { outline: 3px dashed var(--c-primary); outline-offset: -8px; background: #F3FBF6; }
     </style>
 </head>
 <body>
@@ -640,6 +654,30 @@
         </div>
     </div>
 
+    <div id="docContextMenu" class="context-menu">
+        <ul>
+            <li onclick="docShowInFolder()">📂 폴더에서 보기</li>
+            <li class="edit-btn" onclick="docRename()">✏️ 이름 변경</li>
+            <li class="delete-btn" onclick="docRemove()">🗑️ 보관함에서 빼기</li>
+        </ul>
+    </div>
+
+    <div id="phraseModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2>📋 새 문구</h2>
+                <button class="btn-close" onclick="closePhraseModal()">✖</button>
+            </div>
+            <textarea id="phraseInput" style="width:100%; height:120px; box-sizing:border-box; resize:vertical; font-size:14px; padding:10px;"
+                      placeholder="자주 쓰는 문구를 적으세요. Ctrl+Enter 로 저장됩니다."
+                      onkeydown="if(event.key==='Enter' && (event.ctrlKey||event.metaKey)) addPhrase();"></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+                <button type="button" class="btn btn-ghost" onclick="closePhraseModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="addPhrase()">저장</button>
+            </div>
+        </div>
+    </div>
+
     <div id="globalSearchModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 620px;">
             <div class="modal-header">
@@ -812,23 +850,22 @@
 
     <div id="phrases" class="tab-content">
         <div class="page-head">
-            <h2>📋 문구 창고</h2>
-        </div>
-        <p class="page-hint">💡 자주 쓰는 문구를 저장해두고 복사해서 씁니다</p>
-
-        <div style="background:#f4f7f6; border-radius:6px; padding:12px; margin-bottom:16px;">
-            <textarea id="phraseInput" style="width:100%; height:64px; box-sizing:border-box; resize:vertical; font-family:inherit; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:4px;"
-                      placeholder="자주 쓰는 문구를 적으세요. Ctrl+Enter로 바로 저장됩니다."
-                      onkeydown="if(event.key==='Enter' && (event.ctrlKey||event.metaKey)) addPhrase();"></textarea>
-            <div style="text-align:right; margin-top:6px;">
-                <button class="btn btn-primary" type="button" style="padding:6px 16px; font-size:13px" onclick="addPhrase()">문구 저장</button>
+            <h2>📁 문서 보관함</h2>
+            <span class="contact-count" id="docCount">0개</span>
+            <div class="page-actions">
+                <button type="button" class="btn btn-secondary" onclick="openPhraseModal()">➕ 새 문구</button>
+                <button type="button" class="btn btn-primary" onclick="addDocument()">➕ 새 문서</button>
             </div>
         </div>
+        <p class="page-hint">💡 파일을 이 화면에 끌어다 놓으면 들어갑니다 · 눌러서 열기 · 우클릭: 폴더에서 보기 · 이름 변경 · 빼기<br>파일은 복사하지 않고 원본 위치를 기억합니다. 원본을 옮기면 ⚠️ 로 표시됩니다.</p>
 
-        <input type="text" id="phraseSearch" placeholder="🔍 저장된 문구 검색"
-               oninput="renderPhrases()"
+        <input type="text" id="phraseSearch" placeholder="🔍 문서 · 문구 검색"
+               oninput="renderPhrases(); renderDocs();"
                style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px; margin-bottom:14px;">
 
+        <div id="docListContainer"></div>
+
+        <h3 style="margin: 22px 0 10px; font-size: 14px; color: var(--c-ink-soft);">📋 문구</h3>
         <div id="phraseListContainer"></div>
     </div>
 
@@ -946,10 +983,13 @@
                     if (parsed.calendarOptions) calendarOptions = parsed.calendarOptions;
                     renderCalendar();
                 }
+                if (parsed.docs) { docs = parsed.docs; renderDocs(); }
                 if (parsed.sheets) {
                     sheets = parsed.sheets;
                     if (!curSheet()) activeSheetId = sheets.length ? sheets[0].id : null;
                     renderSheets();
+            renderDocs();
+            checkDocFiles();
                 }
                 if (parsed.contacts || parsed.tags || parsed.orgs || parsed.projects) {
                     if (parsed.contacts) contacts = parsed.contacts;
@@ -994,6 +1034,7 @@
                 if (Array.isArray(doc.orgs)) orgs = doc.orgs;
                 if (Array.isArray(doc.projects)) projects = doc.projects;
                 if (Array.isArray(doc.phrases)) phrases = doc.phrases;
+                if (Array.isArray(doc.docs)) docs = doc.docs;
                 if (Array.isArray(doc.sheets)) sheets = doc.sheets;
                 if (Array.isArray(doc.events)) events = doc.events;
                 if (doc.calendarOptions) calendarOptions = doc.calendarOptions;
@@ -2330,6 +2371,17 @@
         function copyPhrase(id, btn) {
             const p = phrases.find(x => x.id === id);
             if (p) copyText(p.text, btn);
+        }
+
+        function openPhraseModal() {
+            document.getElementById('phraseModal').style.display = 'flex';
+            const el = document.getElementById('phraseInput');
+            el.value = '';
+            el.focus();
+        }
+
+        function closePhraseModal() {
+            document.getElementById('phraseModal').style.display = 'none';
         }
 
         function renderPhrases() {
@@ -3937,10 +3989,12 @@
             const i = s.toLowerCase().indexOf(q);
             if (i < 0) return esc(s.slice(0, 60));
             const from = Math.max(0, i - 20);
-            const cut = (from ? '…' : '') + s.slice(from, i + q.length + 40) + (i + q.length + 40 < s.length ? '…' : '');
-            return esc(cut).replace(new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\        initApp();'), 'i'), m => '<mark>' + m + '</mark>');
+            const head = (from ? '…' : '') + s.slice(from, i);
+            const mid  = s.slice(i, i + q.length);
+            const tailFrom = i + q.length;
+            const tail = s.slice(tailFrom, tailFrom + 40) + (tailFrom + 40 < s.length ? '…' : '');
+            return esc(head) + '<mark>' + esc(mid) + '</mark>' + esc(tail);
         }
-
         function runGlobalSearch() {
             const raw = document.getElementById('gs_input').value.trim();
             const box = document.getElementById('gs_results');
@@ -4076,6 +4130,183 @@
                 openGlobalSearch();
             }
         });
+
+
+        // ══════════════════════════════════════════════════════════════
+        // 문서 보관함 — 원본 파일의 경로를 기억해 두고 눌러서 연다
+        // ══════════════════════════════════════════════════════════════
+
+        let docs = [];
+
+        function saveDocs() {
+            saveSections({ docs: docs });
+            renderDocs();
+        }
+
+        // 📌 경로만 기억하므로 원본을 옮기거나 지우면 링크가 죽는다.
+        // 눌렀을 때 처음 알게 되면 늦다. 켤 때 한 번 확인해 목록에 표시해 둔다.
+        async function checkDocFiles() {
+            if (!docs.length) return;
+            const paths = docs.map(d => d.path);
+            const missing = await ipcRenderer.invoke('check-files', paths);
+            let changed = false;
+            docs.forEach((d, i) => {
+                const gone = !!missing[i];
+                if (!!d.missing !== gone) { d.missing = gone; changed = true; }
+            });
+            if (changed) renderDocs();
+        }
+
+        async function addDocument() {
+            const picked = await ipcRenderer.invoke('pick-files');
+            if (picked && picked.length) addDocPaths(picked);
+        }
+
+        function addDocPaths(paths) {
+            let added = 0;
+            paths.forEach(p => {
+                if (docs.some(d => d.path === p)) return;   // 같은 파일은 한 번만
+                docs.push({
+                    id: Date.now() + Math.floor(Math.random() * 1000),
+                    name: p.split(/[\\/]/).pop(),
+                    path: p,
+                    addedAt: getTodayString()
+                });
+                added++;
+            });
+            if (!added) { showToast('이미 들어 있는 파일입니다'); return; }
+            saveDocs();
+            showToast(added + '개 문서를 넣었습니다');
+        }
+
+        function openDocument(id) {
+            const d = docs.find(x => x.id === id);
+            if (!d) return;
+            ipcRenderer.invoke('open-file', d.path).then(res => {
+                if (res && res.ok) return;
+                d.missing = true;
+                renderDocs();
+                showToast('파일을 찾을 수 없습니다. 옮겼거나 지워진 것 같습니다');
+            });
+        }
+
+        function showDocMenu(e, id) {
+            e.preventDefault();
+            e.stopPropagation();
+            ctxDocId = id;
+            hideDocMenu();
+            const m = document.getElementById('docContextMenu');
+            m.style.display = 'block';
+            m.style.left = e.pageX + 'px';
+            m.style.top = e.pageY + 'px';
+        }
+
+        function hideDocMenu() {
+            const m = document.getElementById('docContextMenu');
+            if (m) m.style.display = 'none';
+        }
+        window.addEventListener('click', hideDocMenu);
+
+        let ctxDocId = null;
+
+        function docShowInFolder() {
+            const d = docs.find(x => x.id === ctxDocId);
+            if (d) ipcRenderer.send('show-in-folder', d.path);
+        }
+
+        function docRename() {
+            const d = docs.find(x => x.id === ctxDocId);
+            if (!d) return;
+            const el = document.querySelector('.doc-item[data-id="' + d.id + '"] .doc-name');
+            if (!el) return;
+            el.innerHTML = '<input type="text" class="doc-rename" value="' + esc(d.name) + '"' +
+                ' onclick="event.stopPropagation()"' +
+                ' onblur="docRenameCommit(' + d.id + ', this.value)"' +
+                ' onkeydown="if(event.key===\'Enter\' && !event.isComposing) this.blur(); if(event.key===\'Escape\') renderDocs();">';
+            const inp = el.querySelector('input');
+            inp.focus();
+            inp.select();
+        }
+
+        function docRenameCommit(id, value) {
+            const d = docs.find(x => x.id === id);
+            const v = String(value || '').trim();
+            if (d && v && v !== d.name) { d.name = v; saveDocs(); return; }
+            renderDocs();
+        }
+
+        function docRemove() {
+            const d = docs.find(x => x.id === ctxDocId);
+            if (!d) return;
+            // 목록에서만 빼는 것이지 원본 파일은 건드리지 않는다.
+            if (!confirm('\'' + d.name + '\' 을(를) 보관함에서 뺄까요?\n원본 파일은 지우지 않습니다.')) return;
+            docs = docs.filter(x => x.id !== d.id);
+            saveDocs();
+        }
+
+        function docIcon(name) {
+            const ext = String(name).split('.').pop().toLowerCase();
+            if (['pdf'].includes(ext)) return '📕';
+            if (['xls', 'xlsx', 'csv'].includes(ext)) return '📗';
+            if (['doc', 'docx', 'hwp', 'hwpx'].includes(ext)) return '📘';
+            if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext)) return '🖼️';
+            if (['zip', '7z', 'rar'].includes(ext)) return '🗜️';
+            if (['dwg', 'dxf'].includes(ext)) return '📐';
+            return '📄';
+        }
+
+        function renderDocs() {
+            const box = document.getElementById('docListContainer');
+            if (!box) return;
+
+            const searchEl = document.getElementById('phraseSearch');
+            const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            const list = q
+                ? docs.filter(d => String(d.name).toLowerCase().includes(q) || String(d.path).toLowerCase().includes(q))
+                : docs;
+
+            const count = document.getElementById('docCount');
+            if (count) count.innerText = docs.length + '개';
+
+            if (!list.length) {
+                box.innerHTML = '<p class="contact-empty">' +
+                    (docs.length ? '검색 결과가 없습니다.'
+                                 : '아직 넣은 문서가 없습니다.<br>파일을 이 화면으로 <b>끌어다 놓거나</b> 오른쪽 위 “➕ 새 문서”를 누르세요.') +
+                    '</p>';
+                return;
+            }
+
+            box.innerHTML = list.slice().sort((a, b) =>
+                String(b.addedAt || '').localeCompare(String(a.addedAt || ''))
+            ).map(d =>
+                '<div class="doc-item' + (d.missing ? ' missing' : '') + '" data-id="' + d.id + '"' +
+                ' onclick="openDocument(' + d.id + ')" oncontextmenu="showDocMenu(event, ' + d.id + ')"' +
+                ' title="' + esc(d.path) + '">' +
+                    '<span class="doc-icon">' + (d.missing ? '⚠️' : docIcon(d.name)) + '</span>' +
+                    '<span class="doc-name">' + esc(d.name) + '</span>' +
+                    '<span class="doc-path">' + esc(d.missing ? '파일을 찾을 수 없습니다 — ' + d.path : d.path) + '</span>' +
+                '</div>'
+            ).join('');
+        }
+
+        // 파일을 창에 끌어다 놓으면 보관함에 들어간다.
+        (function initDocDrop() {
+            const tab = document.getElementById('phrases');
+            if (!tab) return;
+            ['dragenter', 'dragover'].forEach(ev => tab.addEventListener(ev, e => {
+                e.preventDefault();
+                tab.classList.add('drop-target');
+            }));
+            ['dragleave', 'drop'].forEach(ev => tab.addEventListener(ev, e => {
+                if (ev === 'dragleave' && tab.contains(e.relatedTarget)) return;
+                tab.classList.remove('drop-target');
+            }));
+            tab.addEventListener('drop', e => {
+                e.preventDefault();
+                const paths = [...(e.dataTransfer.files || [])].map(f => f.path).filter(Boolean);
+                if (paths.length) addDocPaths(paths);
+            });
+        })();
 
         initApp();
     </script>
