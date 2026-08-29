@@ -46,12 +46,7 @@ export function prepareSandbox() {
     fs.cpSync(assetsSrc, path.join(dir, 'assets'), { recursive: true });
   }
 
-  const mainPath = path.join(dir, 'main.js');
-  const s = fs.readFileSync(mainPath, 'utf8');
-  if (!s.includes(DATA_LINE_OLD)) {
-    throw new Error('main.js에서 dataFilePath 한 줄을 찾지 못했습니다. 이 줄이 바뀌었다면 lib.mjs의 DATA_LINE_OLD도 같이 고쳐야 합니다.');
-  }
-  fs.writeFileSync(mainPath, s.replace(DATA_LINE_OLD, DATA_LINE_NEW));
+  // main.js 가 TM_DATA_FILE 환경변수를 직접 지원하므로 더 손댈 것이 없다.
   return dir;
 }
 

@@ -2,9 +2,8 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Task Manager Widget</title>
+    <title>메모</title>
     <style>
-        /* ── 글꼴: Pretendard (앱에 포함, 인터넷 없어도 동작) ── */
         @font-face {
             font-family: "Pretendard";
             src: url("assets/fonts/PretendardVariable.woff2") format("woff2-variations");
@@ -12,271 +11,142 @@
             font-style: normal;
             font-display: swap;
         }
-        body { 
-            margin: 0; padding: 15px; font-family: "Pretendard", "Malgun Gothic", -apple-system, system-ui, sans-serif; 
-            background-color: rgba(255, 255, 255, 0.95); 
-            border-radius: 12px; border: 1px solid #ddd; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
-            overflow: hidden; user-select: none;
-            -webkit-app-region: drag; position: relative; 
-            height: 100vh; box-sizing: border-box;
-            display: flex; flex-direction: column; 
-        }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        h3 { margin: 0; color: #2c3e50; font-size: 15px; }
-        
-        /* 📌 상단 컨트롤 버튼들 영역 (공간 활용을 위해 타이트하게 배치) */
-        .controls { display: flex; gap: 5px; align-items: center; -webkit-app-region: no-drag; }
-        .top-toggle { font-size: 11px; font-weight: bold; color: #555; display: flex; align-items: center; cursor: pointer; }
-        .top-toggle input { cursor: pointer; margin-right: 2px; }
-        .opacity-slider { width: 45px; cursor: pointer; }
-        
-        .icon-btn { 
-            border: none; border-radius: 4px; 
-            width: 22px; height: 22px; font-size: 11px; font-weight: bold; cursor: pointer; 
-            display: flex; justify-content: center; align-items: center; 
-        }
-        .main-btn { background: #3498db; color: white; }
-        .main-btn:hover { background: #2980b9; }
-        .close-btn { background: #e74c3c; color: white; border-radius: 50%; }
-        .close-btn:hover { background: #c0392b; }
-        
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; font-size: 12px; margin-bottom: 10px; }
-        .day-header { font-weight: bold; background: #eef2f5; padding: 5px 0; border-radius: 3px; }
-        .day { background: white; border: 1px solid #eee; min-height: 40px; border-radius: 3px; padding: 2px; display: flex; flex-direction: column; align-items: center; cursor: pointer; -webkit-app-region: no-drag;}
-        .day:hover { background: #f1f8ff; border-color: #3498db; }
-        .day.today { border: 2px solid #3498db; background: #fffff0; }
-        .date-num { font-weight: bold; margin-bottom: 2px; color: #333;}
-        .dot-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; width: 100%; pointer-events: none;}
-        .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-        
-        .memo-container { display: flex; flex-direction: column; flex: 1; -webkit-app-region: no-drag; }
-        .memo-header { font-size: 13px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
-        #widgetMemo { 
-            flex: 1; width: 100%; resize: none; border: 1px solid #ccc; border-radius: 4px; 
-            padding: 8px; font-size: 12px; font-family: inherit; box-sizing: border-box; 
-            background-color: rgba(255, 255, 255, 0.7); 
-        }
-        #widgetMemo:focus { outline: none; border-color: #3498db; background-color: #fff; }
 
-        .task-overlay {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.98); z-index: 10; padding: 15px; box-sizing: border-box;
-            flex-direction: column; -webkit-app-region: no-drag;
-        }
-        .task-overlay-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 8px; margin-bottom: 10px; }
-        .task-overlay-header h4 { margin: 0; font-size: 14px; color: #2c3e50; }
-        .task-list { overflow-y: auto; flex: 1; font-size: 12px; margin: 0; padding: 0; list-style: none; }
-        .task-list li { background: #f8f9fa; padding: 8px; margin-bottom: 5px; border-radius: 4px; border-left: 3px solid #e74c3c; line-height: 1.4; }
-        .back-btn { background: #7f8c8d; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; font-weight: bold;}
-        .back-btn:hover { background: #95a5a6; }
-        /* 📌 버튼·입력칸은 글꼴을 상속받지 않는다. 전부 한 번에 지정한다.
-           (탭 버튼이 Arial 로 남아 있었다) */
-        body, h1, h2, h3, h4, h5, p, span, div, li, td, th, label,
-        button, input, select, textarea, optgroup {
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+        body {
             font-family: "Pretendard", "Malgun Gothic", -apple-system, system-ui, sans-serif;
+            background: #FFF8C8;                 /* 스티키 메모 느낌의 옅은 노랑 */
+            display: flex; flex-direction: column;
+            border: 1px solid #E8D98A;
+            box-sizing: border-box;
+        }
+
+        /* 머리줄만 끌어서 옮긴다. 본문은 글자 선택이 돼야 하므로 no-drag */
+        .bar {
+            -webkit-app-region: drag;
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 8px 6px 12px;
+            background: #FBEFA0;
+            border-bottom: 1px solid #EEDF92;
+            flex-shrink: 0;
+        }
+        .bar h1 {
+            margin: 0; font-size: 12.5px; font-weight: 700; color: #6B5B14;
+            letter-spacing: -0.01em; white-space: nowrap;
+        }
+        .bar .spacer { flex: 1; }
+
+        .ctrl { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 4px; }
+        .pin {
+            display: flex; align-items: center; gap: 3px;
+            font-size: 11px; font-weight: 700; color: #7A6A1E; cursor: pointer;
+            padding: 2px 5px; border-radius: 4px; user-select: none;
+        }
+        .pin:hover { background: rgba(0,0,0,0.06); }
+        .pin input { cursor: pointer; margin: 0; width: 12px; height: 12px; }
+
+        .icon {
+            border: none; background: transparent; cursor: pointer;
+            width: 22px; height: 22px; border-radius: 4px;
+            font-size: 12px; line-height: 1; color: #6B5B14;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .icon:hover { background: rgba(0,0,0,0.08); }
+        .icon.close:hover { background: #E74C3C; color: #fff; }
+
+        /* 창 전체가 곧 메모칸 */
+        #memo {
+            -webkit-app-region: no-drag;
+            flex: 1; width: 100%; box-sizing: border-box;
+            border: none; outline: none; resize: none;
+            background: transparent; color: #3B3413;
+            font-family: inherit; font-size: 14px; line-height: 1.65;
+            padding: 12px 14px;
+        }
+        #memo::placeholder { color: #B7A85E; }
+
+        .status {
+            -webkit-app-region: no-drag;
+            flex-shrink: 0; padding: 4px 12px 7px;
+            font-size: 10.5px; color: #A2924A; text-align: right; min-height: 14px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h3 id="monthText"></h3>
-        <div class="controls">
-            <label class="top-toggle" title="항상 맨 위로 고정">
+    <div class="bar">
+        <h1>📝 메모</h1>
+        <div class="spacer"></div>
+        <div class="ctrl">
+            <label class="pin" title="항상 맨 위에 두기">
                 <input type="checkbox" id="alwaysOnTop" checked> 위
             </label>
-            <input type="range" min="0.2" max="1" step="0.05" value="0.95" class="opacity-slider" id="opacitySlider" title="배경 투명도">
-            <button class="icon-btn main-btn" onclick="returnToMain()" title="메인 창 복귀">🖥️</button>
-            <button class="icon-btn close-btn" onclick="window.close()" title="위젯 닫기">✖</button>
+            <button class="icon" onclick="openMain()" title="업무 창 열기">🖥️</button>
+            <button class="icon close" onclick="closeSelf()" title="메모 닫기">✖</button>
         </div>
     </div>
-    
-    <div class="calendar-grid" id="grid"></div>
 
-    <div class="memo-container">
-        <div class="memo-header">💡 생각나는대로 적기</div>
-        <textarea id="widgetMemo" placeholder="간단한 메모나 아이디어를 적어보세요..."></textarea>
-    </div>
-
-    <div class="task-overlay" id="taskOverlay">
-        <div class="task-overlay-header">
-            <h4 id="overlayDateTitle"></h4>
-            <button class="back-btn" onclick="closeTaskOverlay()">◀ 달력으로</button>
-        </div>
-        <ul class="task-list" id="overlayTaskList"></ul>
-    </div>
+    <textarea id="memo" placeholder="여기에 적으면 메모장 탭과 같이 저장됩니다."></textarea>
+    <div class="status" id="status"></div>
 
     <script>
         const { ipcRenderer } = require('electron');
-        let tasks = [];
-        let categories = ["단가공사", "총가공사", "자료/공문 제출", "민원대응/단순연락", "기타"]; 
-        let memoPadData = "";
-        let currentDate = new Date();
 
-        // 📌 항상 위 체크박스 기능 연동
-        document.getElementById('alwaysOnTop').addEventListener('change', function() {
+        const $ = id => document.getElementById(id);
+        let memoSaveTimer = null;
+
+        function openMain()  { ipcRenderer.send('show-main'); }
+        function closeSelf() { window.close(); }
+
+        $('alwaysOnTop').addEventListener('change', function () {
             ipcRenderer.send('set-always-on-top', this.checked);
         });
 
-        // 📌 메인 복귀 버튼 누르면 실행
-        function returnToMain() {
-            ipcRenderer.send('show-main');
+        function setStatus(text) { $('status').innerText = text; }
+
+        function persistMemo() {
+            ipcRenderer.send('save-sections', { memoPadData: $('memo').value });
+            const d = new Date(), p = n => String(n).padStart(2, '0');
+            setStatus('저장됨 · ' + p(d.getHours()) + ':' + p(d.getMinutes()));
         }
 
-        function getPriorityColor(priority) {
-            if (priority === 1) return '#e74c3c'; 
-            if (priority === 2) return '#f39c12'; 
-            if (priority === 3) return '#2ecc71'; 
-            if (priority === 4) return '#95a5a6'; 
-            return '#e74c3c';
-        }
-
-        document.getElementById('opacitySlider').addEventListener('input', function() {
-            document.body.style.backgroundColor = `rgba(255, 255, 255, ${this.value})`;
+        // 📌 글자마다 저장하면 파일 쓰기가 과해진다. 0.5초 쉴 때 한 번만 저장한다.
+        $('memo').addEventListener('input', function () {
+            setStatus('입력 중…');
+            if (memoSaveTimer) clearTimeout(memoSaveTimer);
+            memoSaveTimer = setTimeout(() => {
+                memoSaveTimer = null;
+                persistMemo();
+            }, 500);
         });
-
-        // 📌 메인 창과 동일하게 0.5초 디바운스 저장 (글자마다 파일 쓰기 방지)
-        let memoSaveTimer = null;
-
-        // 위젯이 소유한 섹션은 메모뿐이다. 업무/분류는 보내지 않는다.
-        function persistData() {
-            ipcRenderer.send('save-sections', { memoPadData: memoPadData });
-        }
 
         function flushMemoSave() {
             if (memoSaveTimer) {
                 clearTimeout(memoSaveTimer);
                 memoSaveTimer = null;
-                persistData();
+                persistMemo();
             }
         }
-
-        document.getElementById('widgetMemo').addEventListener('input', function() {
-            memoPadData = this.value;
-            if (memoSaveTimer) clearTimeout(memoSaveTimer);
-            memoSaveTimer = setTimeout(() => {
-                memoSaveTimer = null;
-                persistData();
-            }, 500);
-        });
-
-        document.getElementById('widgetMemo').addEventListener('blur', flushMemoSave);
+        $('memo').addEventListener('blur', flushMemoSave);
         window.addEventListener('blur', flushMemoSave);
         window.addEventListener('beforeunload', flushMemoSave);
 
-        // 다른 창이 바꾼 섹션만 도착한다.
+        // 📌 저장 대기 중인 내 입력이 없을 때만 다른 창의 내용을 받아 넣는다.
+        // 그래야 여기서 치는 중에 글자가 덮이지 않는다.
         ipcRenderer.on('sync-sections', (event, patch) => {
-            try {
-                const parsed = patch || {};
-                if (parsed.memoPadData !== undefined) {
-                    const memoEl = document.getElementById('widgetMemo');
-                    // 📌 메인 창과 동일한 규칙: 저장 대기중인 내 입력이 없을 때만 반영한다.
-                    if (!memoSaveTimer && memoEl.value !== parsed.memoPadData) {
-                        const pos = memoEl.selectionStart;
-                        memoPadData = parsed.memoPadData;
-                        memoEl.value = memoPadData;
-                        try { memoEl.setSelectionRange(pos, pos); } catch (e) {}
-                    }
-                }
-                // 달력은 업무가 바뀌었을 때만 다시 그린다.
-                if (parsed.tasks || parsed.categories) {
-                    if (parsed.tasks) tasks = parsed.tasks;
-                    if (parsed.categories) categories = parsed.categories;
-                    render();
-                }
-            } catch(e) {}
+            if (!patch || patch.memoPadData === undefined) return;
+            const el = $('memo');
+            if (memoSaveTimer || el.value === patch.memoPadData) return;
+            const pos = el.selectionStart;
+            el.value = patch.memoPadData;
+            try { el.setSelectionRange(pos, pos); } catch (e) {}
         });
 
         async function init() {
             const doc = await ipcRenderer.invoke('load-data');
-            if (doc) {
-                if (Array.isArray(doc.tasks)) tasks = doc.tasks;
-                if (Array.isArray(doc.categories) && doc.categories.length) categories = doc.categories;
-                if (doc.memoPadData !== undefined) {
-                    memoPadData = doc.memoPadData;
-                    document.getElementById('widgetMemo').value = memoPadData;
-                }
-            }
-            render();
-        }
-
-        function render() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            document.getElementById('monthText').innerText = `${year}년 ${month + 1}월`;
-
-            const firstDay = new Date(year, month, 1).getDay();
-            const lastDate = new Date(year, month + 1, 0).getDate();
-            const grid = document.getElementById('grid');
-            grid.innerHTML = '';
-
-            const days = ['일', '월', '화', '수', '목', '금', '토'];
-            days.forEach(d => {
-                const div = document.createElement('div');
-                div.className = 'day-header';
-                div.innerText = d;
-                if(d === '일') div.style.color = 'red';
-                if(d === '토') div.style.color = 'blue';
-                grid.appendChild(div);
-            });
-
-            for(let i=0; i<firstDay; i++) {
-                const div = document.createElement('div');
-                div.style.background = 'transparent';
-                div.style.border = 'none';
-                grid.appendChild(div);
-            }
-
-            const realToday = new Date();
-            for(let date=1; date<=lastDate; date++) {
-                const div = document.createElement('div');
-                div.className = 'day';
-                if(year === realToday.getFullYear() && month === realToday.getMonth() && date === realToday.getDate()) {
-                    div.classList.add('today');
-                }
-
-                const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-                let html = `<span class="date-num">${date}</span><div class="dot-container">`;
-
-                const dayTasks = tasks.filter(t => t.dueDate === dateStr);
-                dayTasks.forEach(t => {
-                    const bgColor = getPriorityColor(t.priority);
-                    const doneOpacity = t.status === '완료됨' ? 'opacity: 0.4;' : '';
-                    html += `<span class="dot" style="background-color: ${bgColor}; ${doneOpacity}"></span>`;
-                });
-                html += `</div>`;
-                div.innerHTML = html;
-                
-                div.onclick = () => {
-                    if(dayTasks.length > 0) openTaskOverlay(dateStr, dayTasks);
-                };
-
-                grid.appendChild(div);
-            }
-        }
-
-        function openTaskOverlay(dateStr, dayTasks) {
-            document.getElementById('overlayDateTitle').innerText = dateStr;
-            const listEl = document.getElementById('overlayTaskList');
-            listEl.innerHTML = '';
-            
-            dayTasks.sort((a, b) => a.priority - b.priority).forEach(t => {
-                const li = document.createElement('li');
-                const priorityColor = getPriorityColor(t.priority);
-                li.style.borderLeftColor = priorityColor;
-                if(t.status === '완료됨') {
-                    li.style.textDecoration = 'line-through';
-                    li.style.opacity = '0.6';
-                }
-                li.innerHTML = `<b>[${t.priority}순위]</b> ${t.content}`;
-                listEl.appendChild(li);
-            });
-            
-            document.getElementById('taskOverlay').style.display = 'flex';
-        }
-
-        function closeTaskOverlay() {
-            document.getElementById('taskOverlay').style.display = 'none';
+            if (doc && doc.memoPadData !== undefined) $('memo').value = doc.memoPadData;
+            setStatus('');
+            $('memo').focus();
         }
 
         init();

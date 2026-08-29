@@ -70,7 +70,7 @@ function createTray() {
     tray.setContextMenu(Menu.buildFromTemplate([
         { label: '업무 창 열기', click: showMainWindow },
         { label: '빠른 등록', click: openQuickAdd },
-        { label: '달력 위젯 띄우기', click: openWidget },
+        { label: '메모 위젯', click: openWidget },
         { type: 'separator' },
         { label: '완전 종료', click: () => { isQuitting = true; app.quit(); } },
     ]));
@@ -129,34 +129,59 @@ app.on('window-all-closed', () => {});
 
 app.on('before-quit', () => { isQuitting = true; });
 
-function openWidget() {
+// 메모 위젯의 크기·위치를 기억한다. 스티키 메모는 놔둔 자리에 그대로 있어야 한다.
+let widgetBoundsTimer = null;
+function rememberWidgetBounds() {
+    if (!widgetWindow || widgetWindow.isDestroyed()) return;
+    if (widgetBoundsTimer) clearTimeout(widgetBoundsTimer);
+    const b = widgetWindow.getBounds();
+    widgetBoundsTimer = setTimeout(() => { patchSettings({ memoWidget: b }); }, 400);
+}
+
+// 📌 getSettings 는 비동기다(파일을 읽는다). 동기처럼 쓰면 저장해 둔 크기·위치가
+// 조용히 무시된다.
+async function openWidget() {
     if (widgetWindow) {
+        widgetWindow.show();
         widgetWindow.focus();
         return;
     }
 
-    // 📌 위젯이 열리면 메인 창을 숨긴다.
-    // 단, 원래 숨어 있었다면(트레이에서 위젯만 띄운 경우) 나중에 되살리지 않는다.
-    restoreMainOnWidgetClose = !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible());
-    if (restoreMainOnWidgetClose) mainWindow.hide();
-    
-    widgetWindow = new BrowserWindow({
-        width: 300,
-        height: 480,
-        frame: false,        
-        transparent: true,   
+    // 📌 메모 위젯은 메인 창과 같이 떠 있는다. 달력 위젯이던 시절에는 메인 창을
+    // 숨겼는데, 스티키 메모는 다른 일을 하면서 옆에 두는 물건이라 숨기면 안 된다.
+    const saved = (await getSettings()).memoWidget;
+    const opts = {
+        width: 320,
+        height: 380,
+        minWidth: 220,
+        minHeight: 160,
+        frame: false,
+        transparent: false,
+        resizable: true,
         alwaysOnTop: true,   // 기본값: 항상 위
+        skipTaskbar: true,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
         }
-    });
-    widgetWindow.loadFile('widget.html');
+    };
+    if (saved && typeof saved.x === 'number') {
+        const fits = screen.getAllDisplays().some(d => {
+            const a = d.workArea;
+            return saved.x >= a.x - 40 && saved.y >= a.y - 40 &&
+                   saved.x < a.x + a.width && saved.y < a.y + a.height;
+        });
+        if (fits) Object.assign(opts, { x: saved.x, y: saved.y, width: saved.width, height: saved.height });
+    }
 
-    // 📌 위젯을 열 때 숨겼던 경우에만 메인 창을 되돌린다.
+    widgetWindow = new BrowserWindow(opts);
+    widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+    widgetWindow.loadFile('widget.html');
+    widgetWindow.on('move', rememberWidgetBounds);
+    widgetWindow.on('resize', rememberWidgetBounds);
+
     widgetWindow.on('closed', () => {
         widgetWindow = null;
-        if (restoreMainOnWidgetClose) showMainWindow();
         restoreMainOnWidgetClose = false;
     });
 }
@@ -164,10 +189,9 @@ function openWidget() {
 ipcMain.on('open-widget', openWidget);
 
 // 📌 위젯의 '메인 창 복귀' 버튼. 명시적 요청이므로 숨어 있었더라도 띄운다.
+// 메모 위젯의 🖥️ 버튼. 메모는 그대로 두고 업무 창만 띄운다.
 ipcMain.on('show-main', () => {
-    restoreMainOnWidgetClose = true;
-    if (widgetWindow) widgetWindow.close();
-    else showMainWindow();
+    showMainWindow();
 });
 
 // 📌 위젯 항상 위 켜기/끄기 설정
