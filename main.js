@@ -111,12 +111,86 @@ async function migrateLegacyData() {
     } catch (e) { /* 예전 파일이 없으면 그냥 새로 시작한다 */ }
 }
 
+// 📌 모든 데이터가 파일 하나에 들어 있다. 깨지거나 실수로 지우면 전부 날아간다.
+// 하루 한 번 복사본을 만들고 최근 7개만 남긴다.
+async function makeDailyBackup() {
+    if (process.env.TM_DATA_FILE) return;   // 테스트용 경로는 건드리지 않는다
+    let raw;
+    try { raw = await fs.promises.readFile(dataFilePath, 'utf8'); }
+    catch (e) { return; }                    // 아직 데이터가 없으면 백업할 것도 없다
+
+    const dir = path.join(dataDir, 'backups');
+    const p2 = n => String(n).padStart(2, '0');
+    const d = new Date();
+    const today = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    const file = path.join(dir, '업무관리_데이터-' + today + '.json');
+
+    try {
+        await fs.promises.mkdir(dir, { recursive: true });
+        try { await fs.promises.access(file); return; } catch (e) {}   // 오늘 것이 이미 있다
+        await fs.promises.writeFile(file, raw);
+
+        const files = (await fs.promises.readdir(dir))
+            .filter(f => f.startsWith('업무관리_데이터-') && f.endsWith('.json'))
+            .sort();
+        for (const old of files.slice(0, Math.max(0, files.length - 7))) {
+            await fs.promises.unlink(path.join(dir, old)).catch(() => {});
+        }
+    } catch (e) { /* 백업은 실패해도 앱은 계속 떠야 한다 */ }
+}
+
+// 'YYYY-MM-DD' 를 로컬 자정으로. UTC 로 해석되면 하루가 밀린다.
+function localDate(str) {
+    if (!str) return null;
+    const [y, m, d] = String(str).split('T')[0].split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+}
+
+// 📌 D-day 는 TO DO 탭을 열어야 보인다. 앱을 켤 때 한 번 알려준다.
+// 기한이 지난 건은 세지 않는다 — 이미 아는 일이라 알림으로 또 보면 피로해진다.
+async function notifyDeadlines() {
+    if (!tray) return;
+    const doc = await readDoc();
+    const tasks = Array.isArray(doc.tasks) ? doc.tasks : [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dow = (today.getDay() + 6) % 7;      // 월=0 … 일=6
+    const weekEnd = new Date(today);
+    weekEnd.setDate(today.getDate() + (6 - dow));   // 이번 주 일요일
+
+    let todayCount = 0, weekCount = 0;
+    tasks.forEach(t => {
+        if (t.status === '완료됨') return;
+        const d = localDate(t.dueDate);
+        if (!d) return;
+        if (d.getTime() === today.getTime()) todayCount++;
+        else if (d > today && d <= weekEnd) weekCount++;
+    });
+
+    if (!todayCount && !weekCount) return;
+    const parts = [];
+    if (todayCount) parts.push('오늘 마감 ' + todayCount + '건');
+    if (weekCount) parts.push('이번 주 마감 ' + weekCount + '건');
+
+    try {
+        tray.displayBalloon({
+            icon: nativeImage.createFromPath(iconPath),
+            title: 'Task Manager',
+            content: parts.join('  ·  ')
+        });
+    } catch (e) {}
+}
+
 app.whenReady().then(async () => {
     await fs.promises.mkdir(dataDir, { recursive: true }).catch(() => {});
     await migrateLegacyData();
+    await makeDailyBackup();
     createWindow();
     createTray();
     applyHotkeyFromSettings();
+    notifyDeadlines();
 });
 
 ipcMain.handle('get-data-path', () => ({ path: dataFilePath, migratedFrom: migratedFrom }));
