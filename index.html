@@ -293,6 +293,23 @@
         button, input, select, textarea, optgroup {
             font-family: "Pretendard", "Malgun Gothic", -apple-system, system-ui, sans-serif;
         }
+        /* ── 전체 검색 ── */
+        .gs-group { margin-bottom: 14px; }
+        .gs-group h4 { margin: 0 0 6px; font-size: 12px; color: var(--c-ink-soft); font-weight: 700; }
+        .gs-dim { color: var(--c-ink-faint); font-weight: 400; }
+        .gs-item {
+            display: block; width: 100%; text-align: left; background: transparent;
+            border: 1px solid transparent; border-radius: 5px; padding: 7px 10px; cursor: pointer;
+            font-family: inherit;
+        }
+        .gs-item:hover { background: #F1F5F8; border-color: var(--c-line); }
+        .gs-label { display: block; font-size: 13.5px; color: var(--c-ink); font-weight: 600; }
+        .gs-sub { display: block; font-size: 11.5px; color: var(--c-ink-faint); margin-top: 2px; }
+        .gs-item mark, #gs_results mark { background: #FFE066; color: #4A3B00; padding: 0 2px; border-radius: 2px; }
+        .gs-empty { color: var(--c-ink-faint); font-size: 13px; padding: 20px 4px; text-align: center; }
+        #gs_results { max-height: 46vh; overflow-y: auto; margin-top: 14px; }
+        /* 프로젝트 표 검색 */
+        #sheetSearchInput { width: 180px; padding: 6px 10px; border: 1px solid var(--c-line-strong); border-radius: 4px; font-size: 12.5px; }
     </style>
 </head>
 <body>
@@ -606,6 +623,20 @@
         </div>
     </div>
 
+    <div id="globalSearchModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 620px;">
+            <div class="modal-header">
+                <h2>🔍 전체 검색</h2>
+                <button class="btn-close" onclick="closeGlobalSearch()">✖</button>
+            </div>
+            <input type="text" id="gs_input" placeholder="고객번호 · 이름 · 현장명 · 기록 내용…"
+                   style="width:100%; padding:12px 14px; font-size:16px; box-sizing:border-box;"
+                   oninput="runGlobalSearch()"
+                   onkeydown="if(event.key==='Escape') closeGlobalSearch();">
+            <div id="gs_results"></div>
+        </div>
+    </div>
+
     <div id="eventModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
@@ -648,7 +679,8 @@
         <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 프로젝트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'phrases')">📋 문구 창고</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'settings')">⚙️ 설정</button>
-        <button type="button" class="btn btn-secondary btn-sm" style="margin-left: auto; align-self: center;" onclick="openWidget()">📝 메모 위젯</button>
+        <button type="button" class="btn btn-secondary btn-sm" style="margin-left: auto; align-self: center;" onclick="openGlobalSearch()" title="Ctrl+Shift+F">🔍 전체 검색</button>
+        <button type="button" class="btn btn-secondary btn-sm" style="align-self: center;" onclick="openWidget()">📝 메모 위젯</button>
     </div>
 
     <div id="dashboard" class="tab-content active">
@@ -752,6 +784,8 @@
             <div class="sheet-toolbar" id="sheetToolbar">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="addSheetRow()">➕ 행 추가</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="openColumnModal(null)">➕ 열 추가</button>
+                <input type="text" id="sheetSearchInput" placeholder="표 안에서 찾기 (Ctrl+F)"
+                       oninput="setSheetSearch(this.value)">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="undoSheet()">↩ 되돌리기</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="redoSheet()">↪ 다시</button>
                 <span class="sheet-hint" id="sheetHint"></span>
@@ -1281,7 +1315,7 @@
             dataList.forEach(t => {
                 const dDayInfo = getDdayInfo(t.dueDate);
                 html += `
-                    <tr class="${t.highlight ? 'hl-row' : ''}" oncontextmenu="showRowMenu(event, ${t.id})">
+                    <tr class="${t.highlight ? 'hl-row' : ''}" data-id="${t.id}" oncontextmenu="showRowMenu(event, ${t.id})">
                         <td>${t.regDate}</td>
                         <td>${t.dueDate || '-'}</td>
                         <td style="color: ${dDayInfo.color};"><b>${dDayInfo.text}</b></td>
@@ -2534,10 +2568,17 @@
         // 연락처 탭에서 Ctrl+F 로 검색창 열기
         window.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                if (e.shiftKey) return;   // Ctrl+Shift+F 는 전체 검색
                 const tab = document.getElementById('contacts');
                 if (tab && tab.classList.contains('active')) {
                     e.preventDefault();
                     openSearchPopup();
+                    return;
+                }
+                const sheetTab = document.getElementById('sheets');
+                if (sheetTab && sheetTab.classList.contains('active')) {
+                    const si = document.getElementById('sheetSearchInput');
+                    if (si) { e.preventDefault(); si.focus(); si.select(); }
                 }
             }
         });
@@ -2709,6 +2750,7 @@
         let draftOptions = [];
 
         // 정렬·필터는 보기 상태다. 데이터의 행 순서를 바꾸지 않는다.
+        let sheetSearch = '';   // 표 안에서 찾기
         let sheetSort = null;    // { colIndex, dir: 'asc' | 'desc' }
         let sheetFilters = {};   // { colId: '값' }
         let curView = [];        // 화면 줄 번호 → 실제 행 번호
@@ -2814,6 +2856,15 @@
 
             let idx = s.rows.map((_, i) => i);
 
+            // 어느 칸에든 걸리면 그 줄을 보여준다.
+            const q = sheetSearch.trim().toLowerCase();
+            if (q) {
+                idx = idx.filter(i => s.columns.some(col => {
+                    const v = s.rows[i].cells[col.id];
+                    return v != null && String(v).toLowerCase().includes(q);
+                }));
+            }
+
             Object.keys(sheetFilters).forEach(colId => {
                 const excluded = sheetFilters[colId];
                 const col = s.columns.find(c => c.id === colId);
@@ -2836,6 +2887,12 @@
 
         function realRow(displayR) {
             return curView[displayR];
+        }
+
+        function setSheetSearch(v) {
+            sheetSearch = v;
+            sel = null;
+            renderGrid();
         }
 
         function toggleSort(colIndex) {
@@ -2933,6 +2990,9 @@
         function clearAllViewState() {
             sheetSort = null;
             sheetFilters = {};
+            sheetSearch = '';
+            const si = document.getElementById('sheetSearchInput');
+            if (si) si.value = '';
             sel = null;
             renderGrid();
         }
@@ -3631,7 +3691,7 @@
 
             computeView();
 
-            const filterCount = Object.keys(sheetFilters).length;
+            const filterCount = Object.keys(sheetFilters).length + (sheetSearch.trim() ? 1 : 0);
             document.getElementById('sheetHint').innerHTML =
                 (filterCount || sheetSort
                     ? '<b style="color:#2980b9;">' + curView.length + '행 보임</b> / 전체 ' + s.rows.length + '행'
@@ -3750,6 +3810,173 @@
                 else if (active.id === 'sheets') { if (curSheet()) addSheetRow(); else openNewSheet(); }
                 else if (active.id === 'brainstorm') document.getElementById('memoPad').focus();
                 return;
+            }
+        });
+
+
+        // ══════════════════════════════════════════════════════════════
+        // 전체 검색 — 업무 · 연락처 · 프로젝트 · 일정 · 메모를 한 번에
+        // ══════════════════════════════════════════════════════════════
+
+        function openGlobalSearch() {
+            document.getElementById('globalSearchModal').style.display = 'flex';
+            const input = document.getElementById('gs_input');
+            input.focus();
+            input.select();
+            runGlobalSearch();
+        }
+
+        function closeGlobalSearch() {
+            document.getElementById('globalSearchModal').style.display = 'none';
+        }
+
+        function hit(text, q) {
+            return String(text == null ? '' : text).toLowerCase().includes(q);
+        }
+
+        // 찾은 글자 앞뒤를 잘라 보여준다. 어디서 걸렸는지 보여야 고르기 쉽다.
+        function snippet(text, q) {
+            const s = String(text == null ? '' : text);
+            const i = s.toLowerCase().indexOf(q);
+            if (i < 0) return esc(s.slice(0, 60));
+            const from = Math.max(0, i - 20);
+            const cut = (from ? '…' : '') + s.slice(from, i + q.length + 40) + (i + q.length + 40 < s.length ? '…' : '');
+            return esc(cut).replace(new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\        initApp();'), 'i'), m => '<mark>' + m + '</mark>');
+        }
+
+        function runGlobalSearch() {
+            const raw = document.getElementById('gs_input').value.trim();
+            const box = document.getElementById('gs_results');
+            const q = raw.toLowerCase();
+            const digits = normalizePhone(raw);
+
+            if (!q) {
+                box.innerHTML = '<p class="gs-empty">찾을 말을 입력하세요. 고객번호 · 이름 · 현장명 · 기록 내용 어디서든 찾습니다.</p>';
+                return;
+            }
+
+            const groups = [];
+
+            // 업무
+            const t = tasks.filter(x => hit(x.content, q) || hit(x.remarks, q))
+                .slice(0, 8)
+                .map(x => ({
+                    label: (x.status === '완료됨' ? '✔ ' : '') + esc(x.content || '(내용 없음)'),
+                    sub: (x.dueDate ? '마감 ' + esc(x.dueDate) : '마감 없음'),
+                    go: 'goTask(' + x.id + ')'
+                }));
+            if (t.length) groups.push(['✏️ TO DO', t]);
+
+            // 연락처 (번호는 숫자만으로도 찾힌다)
+            const c = contacts.filter(x =>
+                hit(x.name, q) || hit(x.org, q) || hit(x.title, q) || hit(x.email, q) || hit(x.customerNo, q) ||
+                (digits && (x.phones || []).some(p => normalizePhone(p.value).includes(digits))) ||
+                (x.notes || []).some(n => hit(n.text, q))
+            ).slice(0, 8).map(x => ({
+                label: esc(x.name || '(이름 없음)') + (x.org ? ' <span class="gs-dim">' + esc(x.org) + '</span>' : ''),
+                sub: (x.phones || []).map(p => esc(formatPhone(p.value))).join(' · ') || esc(x.email || ''),
+                go: 'goContact(' + x.id + ')'
+            }));
+            if (c.length) groups.push(['📇 연락처', c]);
+
+            // 프로젝트 표 (어느 칸에 걸렸는지까지)
+            const rows = [];
+            sheets.forEach(sh => {
+                sh.rows.forEach((r, ri) => {
+                    for (const col of sh.columns) {
+                        const v = r.cells[col.id];
+                        if (v && hit(v, q)) {
+                            rows.push({
+                                label: esc(String(v)),
+                                sub: esc(sh.name) + ' · ' + esc(col.name) + ' · ' + (ri + 1) + '행',
+                                go: 'goSheet(\'' + sh.id + '\', ' + ri + ')'
+                            });
+                            break;
+                        }
+                    }
+                });
+            });
+            if (rows.length) groups.push(['📊 프로젝트', rows.slice(0, 8)]);
+
+            // 일정
+            const ev = events.filter(x => hit(x.title, q) || hit(x.memo, q))
+                .slice(0, 6)
+                .map(x => ({ label: esc(x.title), sub: esc(x.date), go: 'goEvent(' + x.id + ')' }));
+            if (ev.length) groups.push(['📅 일정', ev]);
+
+            // 메모장
+            const memo = document.getElementById('memoPad').value;
+            if (hit(memo, q)) {
+                groups.push(['💡 메모장', [{ label: snippet(memo, q), sub: '메모장에서 찾음', go: 'goMemo()' }]]);
+            }
+
+            if (!groups.length) {
+                box.innerHTML = '<p class="gs-empty">‘' + esc(raw) + '’ 에 걸리는 것이 없습니다.</p>';
+                return;
+            }
+
+            box.innerHTML = groups.map(([title, items]) =>
+                '<div class="gs-group"><h4>' + title + ' <span class="gs-dim">' + items.length + '</span></h4>' +
+                items.map(it =>
+                    '<button type="button" class="gs-item" onclick="' + it.go + '">' +
+                        '<span class="gs-label">' + it.label + '</span>' +
+                        '<span class="gs-sub">' + it.sub + '</span>' +
+                    '</button>').join('') +
+                '</div>').join('');
+        }
+
+        function gotoTab(index) {
+            const btns = document.querySelectorAll('.tab-btn');
+            if (btns[index]) btns[index].click();
+        }
+
+        function goTask(id) {
+            closeGlobalSearch();
+            gotoTab(2);
+            const row = document.querySelector('#masterTable tbody tr[data-id="' + id + '"]');
+            if (row) { row.scrollIntoView({ block: 'center' }); flash(row); }
+        }
+
+        function goContact(id) {
+            closeGlobalSearch();
+            gotoTab(3);
+            openContactDetail(id);
+        }
+
+        function goSheet(sheetId, rowIndex) {
+            closeGlobalSearch();
+            gotoTab(4);
+            switchSheet(sheetId);
+            sel = { r1: rowIndex, c1: 0, r2: rowIndex, c2: 0 };
+            renderGrid();
+            const td = document.querySelector('#gridWrap td[data-r="' + rowIndex + '"]');
+            if (td) td.scrollIntoView({ block: 'center' });
+        }
+
+        function goEvent(id) {
+            closeGlobalSearch();
+            gotoTab(0);
+            openEventModal(id);
+        }
+
+        function goMemo() {
+            closeGlobalSearch();
+            gotoTab(1);
+            document.getElementById('memoPad').focus();
+        }
+
+        function flash(el) {
+            el.style.transition = 'background-color .25s';
+            const before = el.style.backgroundColor;
+            el.style.backgroundColor = '#FFE066';
+            setTimeout(() => { el.style.backgroundColor = before; }, 900);
+        }
+
+        // Ctrl+Shift+F — 탭별 Ctrl+F 와 겹치지 않게
+        window.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+                e.preventDefault();
+                openGlobalSearch();
             }
         });
 
