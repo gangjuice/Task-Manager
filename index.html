@@ -309,7 +309,7 @@
         .gs-empty { color: var(--c-ink-faint); font-size: 13px; padding: 20px 4px; text-align: center; }
         #gs_results { max-height: 46vh; overflow-y: auto; margin-top: 14px; }
         /* 프로젝트 표 검색 */
-        #sheetSearchInput { width: 180px; padding: 6px 10px; border: 1px solid var(--c-line-strong); border-radius: 4px; font-size: 12.5px; }
+        #sheetSearchInput { width: 100%; padding: 12px 14px; border: 1px solid var(--c-line-strong); border-radius: 4px; font-size: 16px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -623,6 +623,19 @@
         </div>
     </div>
 
+    <div id="sheetSearchModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2>🔍 표에서 찾기</h2>
+                <button class="btn-close" onclick="closeSheetSearch()">✖</button>
+            </div>
+            <input type="text" id="sheetSearchInput" placeholder="고객번호 · 현장명 · 담당자 …"
+                   oninput="setSheetSearch(this.value)"
+                   onkeydown="if(event.key==='Enter'||event.key==='Escape') closeSheetSearch()">
+            <p class="search-hint" id="sheetSearchHint"></p>
+        </div>
+    </div>
+
     <div id="globalSearchModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 620px;">
             <div class="modal-header">
@@ -784,8 +797,7 @@
             <div class="sheet-toolbar" id="sheetToolbar">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="addSheetRow()">➕ 행 추가</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="openColumnModal(null)">➕ 열 추가</button>
-                <input type="text" id="sheetSearchInput" placeholder="표 안에서 찾기 (Ctrl+F)"
-                       oninput="setSheetSearch(this.value)">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openSheetSearch()" title="Ctrl+F">🔍 찾기</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="undoSheet()">↩ 되돌리기</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="redoSheet()">↪ 다시</button>
                 <span class="sheet-hint" id="sheetHint"></span>
@@ -2577,8 +2589,8 @@
                 }
                 const sheetTab = document.getElementById('sheets');
                 if (sheetTab && sheetTab.classList.contains('active')) {
-                    const si = document.getElementById('sheetSearchInput');
-                    if (si) { e.preventDefault(); si.focus(); si.select(); }
+                    e.preventDefault();
+                    openSheetSearch();
                 }
             }
         });
@@ -2893,6 +2905,31 @@
             sheetSearch = v;
             sel = null;
             renderGrid();
+            updateSheetSearchHint();
+        }
+
+        function openSheetSearch() {
+            if (!curSheet()) { showToast('먼저 프로젝트를 고르세요'); return; }
+            document.getElementById('sheetSearchModal').style.display = 'flex';
+            const input = document.getElementById('sheetSearchInput');
+            input.value = sheetSearch;
+            input.focus();
+            input.select();
+            updateSheetSearchHint();
+        }
+
+        // 📌 팝업을 닫아도 찾은 상태는 남는다. 표 위의 "N행 보임 · 보기 초기화"가
+        // 왜 줄이 줄었는지 알려주므로 헷갈리지 않는다.
+        function closeSheetSearch() {
+            document.getElementById('sheetSearchModal').style.display = 'none';
+        }
+
+        function updateSheetSearchHint() {
+            const el = document.getElementById('sheetSearchHint');
+            if (!el) return;
+            el.innerText = sheetSearch.trim()
+                ? curView.length + '줄 찾음'
+                : '어느 칸에든 걸리면 그 줄을 보여줍니다. 닫아도 찾은 상태는 남습니다.';
         }
 
         function toggleSort(colIndex) {
@@ -2993,6 +3030,7 @@
             sheetSearch = '';
             const si = document.getElementById('sheetSearchInput');
             if (si) si.value = '';
+            updateSheetSearchHint();
             sel = null;
             renderGrid();
         }
