@@ -29,6 +29,10 @@ fn log(msg: &str) {
     use std::io::Write;
     let _ = fs::create_dir_all(data_dir());
     let p = data_dir().join("tauri.log");
+    // 📌 오래 켜 두는 프로그램이다. 로그가 끝없이 자라면 안 된다.
+    if fs::metadata(&p).map(|m| m.len() > 256 * 1024).unwrap_or(false) {
+        let _ = fs::remove_file(&p);
+    }
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(p) {
         let _ = writeln!(f, "{} {}", Local::now().format("%H:%M:%S"), msg);
     }
@@ -239,13 +243,6 @@ window.addEventListener('unhandledrejection', function (e) {
         window.__TAURI__.core.invoke('js_log', { payload: '처리 안 된 거부 ' + e.reason });
     } catch (x) {}
 });
-document.addEventListener('DOMContentLoaded', function () {
-    try {
-        window.__TAURI__.core.invoke('js_log', {
-            payload: 'DOM 준비됨 · body 길이 ' + (document.body ? document.body.innerHTML.length : -1)
-        });
-    } catch (x) {}
-});
 "#;
 
 fn focus_main(app: &AppHandle) {
@@ -270,7 +267,6 @@ fn open_widget_window(app: &AppHandle) {
 
 fn build_widget(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("widget") {
-        log("위젯이 이미 있음 — 다시 보이게 함");
         let _ = w.show();
         let _ = w.set_focus();
         return;
@@ -284,8 +280,7 @@ fn build_widget(app: &AppHandle) {
         .resizable(true)
         .always_on_top(true)
         .skip_taskbar(true)
-        .initialization_script(ERR_CATCHER)
-        .on_page_load(|w, p| log(&format!("[{}] 페이지 {:?} {}", w.label(), p.event(), p.url())));
+        .initialization_script(ERR_CATCHER);
 
     // 저장해 둔 크기·위치. 모니터를 뺐을 때를 대비해 화면 안에 드는지 본다.
     if let Some(Value::Object(m)) = settings().get("memoWidget") {
@@ -315,7 +310,6 @@ fn build_widget(app: &AppHandle) {
     match b.build() {
         Err(e) => log(&format!("위젯 창 만들기 실패: {}", e)),
         Ok(win) => {
-        log("위젯 창 만듦");
         let h = app.clone();
         win.on_window_event(move |e| {
             if matches!(e, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
@@ -378,7 +372,6 @@ fn build_quick_add(app: &AppHandle) {
     }
     let (ax, ay, aw, ah) = cursor_work_area(app);
     let (w, h) = (470.0, 280.0);
-    log("빠른 등록 창 만드는 중");
     let r = WebviewWindowBuilder::new(app, "quickadd", WebviewUrl::App("quickadd.html".into()))
         .title("빠른 등록")
         .inner_size(w, h)
@@ -390,7 +383,6 @@ fn build_quick_add(app: &AppHandle) {
         .skip_taskbar(true)
         .focused(true)
         .initialization_script(ERR_CATCHER)
-        .on_page_load(|w, p| log(&format!("[{}] 페이지 {:?} {}", w.label(), p.event(), p.url())))
         .build();
     if let Err(e) = r {
         log(&format!("빠른 등록 창 실패: {}", e));
@@ -414,10 +406,34 @@ fn broadcast_except(app: &AppHandle, from: &str, patch: Value) {
 /// 📌 Electron 은 트레이 아이콘의 풍선(Shell_NotifyIcon)을 썼다. 여기서는
 /// 윈도우 토스트를 쓰는데, 토스트는 앱이 시작 메뉴에 등록돼 있어야 뜬다.
 /// 설치하지 않고 exe 만 실행하면 조용히 안 뜬다 — 그래서 결과를 남긴다.
+/// 창을 닫았는데 앱이 안 꺼지면 사용자는 당황한다. 딱 한 번만 알려준다.
+fn notify_tray_once(app: &AppHandle) {
+    let shown = with_doc(|doc| {
+        let mut st = match doc.get("settings") {
+            Some(Value::Object(m)) => m.clone(),
+            _ => Map::new(),
+        };
+        if st.get("trayNoticeShown").and_then(|v| v.as_bool()).unwrap_or(false) {
+            return true;
+        }
+        st.insert("trayNoticeShown".into(), json!(true));
+        doc.insert("settings".into(), Value::Object(st));
+        false
+    });
+    if shown {
+        return;
+    }
+    toast(
+        app,
+        "Task Manager 는 계속 실행 중입니다",
+        "창을 닫아도 트레이에 남아 있습니다. 완전히 끄려면 트레이 아이콘을 우클릭하세요.",
+    );
+}
+
 fn toast(app: &AppHandle, title: &str, body: &str) {
     use tauri_plugin_notification::NotificationExt;
     match app.notification().builder().title(title).body(body).show() {
-        Ok(()) => log(&format!("알림 보냄: {} / {}", title, body)),
+        Ok(()) => {}
         Err(e) => log(&format!("알림 실패: {} / {} — {}", title, body, e)),
     }
 }
@@ -527,7 +543,6 @@ fn show_in_folder(payload: Option<String>, app: AppHandle) {
 
 #[tauri::command]
 fn open_widget(app: AppHandle) {
-    log("open_widget 불림");
     open_widget_window(&app);
 }
 
@@ -836,7 +851,6 @@ fn build_reminder(app: &AppHandle, ev: &Value, late: bool) {
         .skip_taskbar(true)
         .focused(true)
         .initialization_script(ERR_CATCHER)
-        .on_page_load(|w, p| log(&format!("[{}] 페이지 {:?} {}", w.label(), p.event(), p.url())))
         .build();
 
     if let Ok(win) = built {
@@ -983,7 +997,6 @@ fn notify_deadlines(app: &AppHandle) {
             week_n += 1;
         }
     }
-    log(&format!("마감 셈: 오늘 {}건 · 이번 주 {}건 (업무 {}개 중)", today_n, week_n, tasks.len()));
     if today_n == 0 && week_n == 0 {
         return;
     }
@@ -1079,6 +1092,8 @@ fn main() {
                         if let Some(w) = h2.get_webview_window("main") {
                             let _ = w.hide();
                         }
+                        let h4 = h2.clone();
+                        tauri::async_runtime::spawn(async move { notify_tray_once(&h4); });
                     }
                 });
             }
