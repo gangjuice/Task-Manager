@@ -13,16 +13,32 @@ const zlib = require('zlib');
 const ROOT = process.argv[2] || '.';
 const SIZES = [16, 24, 32, 48, 64, 128, 256];
 
+function num(k, dflt) { return process.env[k] ? parseFloat(process.env[k]) : dflt; }
+
 // ── 모양 (100 x 100 칸 기준) ──────────────────────────────────────
-// 위 꼭짓점에서 시작해 시계 방향. 여섯 점이 번개의 기본형이다.
-const BOLT = (process.env.BOLT ? JSON.parse(process.env.BOLT) : [
-    [66,  8],   // 꼭대기
-    [26, 55],   // 왼쪽 허리로 내려옴
-    [48, 55],   // 허리 안쪽
-    [36, 92],   // 아래 끝
-    [76, 42],   // 오른쪽 허리로 올라감
-    [54, 42]    // 허리 안쪽
-]);
+// 📌 잘 그려진 번개는 예외 없이 점대칭이다. 가운데를 기준으로 180° 돌리면
+// 자기 자신과 겹친다. 좌표를 여섯 개 다 손으로 적으면 한두 칸씩 어긋나
+// 삐뚤어 보이므로, 위쪽 절반만 정하고 아래쪽은 계산해서 만든다.
+//
+//        (50+AX, 50-AY)  꼭대기
+//              ///             /  //   (50-BX, 50+BY)  ──  (50-CX, 50+BY)     ← 허리 (왼쪽)
+//
+const AX = num('AX', 8);    // 꼭대기가 가운데서 오른쪽으로 치우친 정도
+const AY = num('AY', 40);   // 꼭대기 높이
+const BX = num('BX', 28);   // 허리 바깥쪽 폭
+const BY = num('BY', 9);    // 허리가 가운데서 벌어진 정도
+const CX = num('CX', 3);    // 허리 안쪽 폭
+
+function mirror(p) { return [100 - p[0], 100 - p[1]]; }
+
+const HALF = [
+    [50 + AX, 50 - AY],   // 꼭대기
+    [50 - BX, 50 + BY],   // 왼쪽 허리 바깥
+    [50 - CX, 50 + BY]    // 왼쪽 허리 안쪽
+];
+const BOLT = process.env.BOLT ? JSON.parse(process.env.BOLT)
+                              : [HALF[0], HALF[1], HALF[2],
+                                 mirror(HALF[0]), mirror(HALF[1]), mirror(HALF[2])];
 
 const CORNER   = num('CORNER', 3.4);    // 번개 끝을 둥글리는 정도
 const FILL     = num('FILL', 0.86);     // 타일에서 차지할 비율
@@ -34,7 +50,6 @@ const SH_DY    = num('SH_DY', 1.6);                   // 그림자를 내릴 거
 const SH_BLUR  = num('SH_BLUR', 3.0);                   // 그림자가 흐려지는 폭
 const SH_MAX   = num('SH_MAX', 0.22);                  // 그림자 진하기
 
-function num(k, dflt) { return process.env[k] ? parseFloat(process.env[k]) : dflt; }
 
 // 둥글리기까지 넣어 실제 넓이를 재고, 가운데로 옮긴 뒤 한 번 더 줄인다.
 const xs = BOLT.map(p => p[0]), ys = BOLT.map(p => p[1]);
@@ -46,6 +61,16 @@ const off = 50 - 50 * FILL;
 
 const P = BOLT.map(p => [(p[0] + dx) * FILL + off, (p[1] + dy) * FILL + off]);
 const RAD = CORNER * FILL;
+
+// 좌표를 손으로 고칠 수도 있으니, 그릴 때마다 점대칭인지 스스로 확인한다.
+[[0, 3], [1, 4], [2, 5]].forEach(([i, j]) => {
+    const sx = BOLT[i][0] + BOLT[j][0], sy = BOLT[i][1] + BOLT[j][1];
+    if (Math.abs(sx - 100) > 0.01 || Math.abs(sy - 100) > 0.01) {
+        console.error('번개가 점대칭이 아닙니다: (' + BOLT[i] + ') + (' + BOLT[j] +
+                      ') = (' + sx + ', ' + sy + ') — (100, 100) 이어야 합니다');
+        process.exit(1);
+    }
+});
 
 // ── 거리 계산 ─────────────────────────────────────────────────────
 
