@@ -364,6 +364,23 @@
         }
         .file-drop.drop-target { border-color: var(--c-primary); background: #F3FBF6; }
         .doc-drop-hint { font-size: 12.5px; color: var(--c-ink-faint); }
+        /* ── 도움말 ── */
+        .help-body { max-height: 66vh; overflow-y: auto; padding-right: 6px; }
+        .help-sec { margin-bottom: 22px; }
+        .help-sec:last-child { margin-bottom: 4px; }
+        .help-sec h3 {
+            margin: 0 0 9px; font-size: 15px; color: var(--c-ink);
+            padding-bottom: 6px; border-bottom: 1px solid var(--c-line);
+        }
+        .help-sec p { margin: 0 0 8px; font-size: 13.5px; color: var(--c-ink-soft); line-height: 1.7; }
+        .help-sec ul { margin: 0; padding-left: 18px; }
+        .help-sec li { font-size: 13.5px; color: var(--c-ink-soft); line-height: 1.8; }
+        .help-sec b { color: var(--c-ink); }
+        .help-key {
+            display: inline-block; font-family: Consolas, monospace; font-size: 12px;
+            background: #eef2f5; border: 1px solid #dbe2e8; border-radius: 3px;
+            padding: 1px 6px; color: #33424d;
+        }
     </style>
 </head>
 <body>
@@ -690,6 +707,164 @@
         </div>
     </div>
 
+    <div id="helpModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="modal-header">
+                <h2>❓ 사용 방법</h2>
+                <button class="btn-close" onclick="closeHelp()">✖</button>
+            </div>
+            <div class="help-body">
+
+                <div class="help-sec">
+                    <h3>이 프로그램은 무엇인가요</h3>
+                    <p>업무 · 일정 · 연락처 · 프로젝트 표 · 문서를 한 창에서 다루는 개인용 프로그램입니다.
+                       모든 내용은 <b>이 컴퓨터에만</b> 저장되고, 고칠 때마다 자동으로 저장됩니다.
+                       따로 저장 버튼을 누를 일은 없습니다.</p>
+                    <p>공통 규칙이 하나 있습니다. <b>목록의 항목은 우클릭하면 할 수 있는 일이 나옵니다.</b>
+                       업무 줄, 연락처 줄, 프로젝트 이름, 표의 열 제목, 캘린더 날짜, 문서 — 전부 같습니다.</p>
+                </div>
+
+                <div class="help-sec">
+                    <h3>📅 캘린더</h3>
+                    <ul>
+                        <li>업무의 마감일과 일정을 한 달치로 봅니다.</li>
+                        <li>색으로 구분합니다 — <b>파랑</b>: 업무 / <b>노랑</b>: 하이라이트한 업무 / <b>초록</b>: 일정</li>
+                        <li><b>날짜 칸 우클릭</b> → 그 날짜에 일정 추가, 또는 그 날짜 마감으로 업무 추가</li>
+                        <li><b>일정 우클릭</b> → 수정 · 삭제</li>
+                        <li>일정에 <b>시각</b>을 넣으면 <b>🔔 알림</b>을 켤 수 있습니다. 켜 두면 그 시각에 화면 가운데로
+                            알림창이 뜹니다. 창은 끌어서 옮길 수 있고, <b>10분 뒤 다시</b>를 누르면 잠시 미룹니다.</li>
+                        <li>캘린더에서 🔔 표시가 붙은 일정이 알림을 걸어 둔 일정입니다.</li>
+                        <li>설정에서 <b>토 · 일 숨기기</b>를 켜면 월~금 5칸으로 넓게 보입니다.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>💡 메모장 · 📝 메모 위젯</h3>
+                    <ul>
+                        <li>형식 없이 아무거나 적어두는 칸입니다. 치는 대로 저장됩니다.</li>
+                        <li>오른쪽 위 <b>📝 메모 위젯</b>을 누르면 작은 노란 창이 따로 뜹니다.
+                            윈도우 스티키 메모처럼 항상 위에 띄워두고 쓰는 용도이고, <b>메모장 탭과 같은 내용</b>입니다.</li>
+                        <li>위젯의 크기와 위치는 기억했다가 다음에 그대로 다시 엽니다.
+                            <b>위</b> 체크를 끄면 다른 창에 가려집니다.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>✏️ TO DO</h3>
+                    <ul>
+                        <li>마감기한이 있는 업무를 관리합니다. 남은 날짜(D-day)가 자동으로 계산됩니다.</li>
+                        <li><b>업무 줄 우클릭</b> → 🟡 하이라이트 · 수정 · 삭제</li>
+                        <li><b>열 제목 좌클릭</b>: 정렬 &nbsp;/&nbsp; <b>열 제목 우클릭</b>: 필터</li>
+                        <li>하이라이트한 업무는 캘린더에서도 노란색으로 보입니다.</li>
+                        <li>앱을 켤 때 <b>오늘 마감 N건 · 이번 주 마감 M건</b>을 알려줍니다.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>📇 연락처</h3>
+                    <ul>
+                        <li><b>줄 좌클릭</b> → 상세 창. 통화하면서 그때그때 기록을 덧붙일 수 있습니다.</li>
+                        <li><b>줄 우클릭</b> → 수정 · 삭제 &nbsp;/&nbsp; <b>열 제목 우클릭</b>: 필터</li>
+                        <li><b>🔍 검색</b> 또는 <span class="help-key">Ctrl+F</span> — 이름 · 번호 · 기록 내용까지 찾습니다.
+                            번호는 하이픈 없이 숫자만 쳐도 됩니다.</li>
+                        <li>검색창을 닫아도 찾은 상태는 남습니다. 목록 위의 <b>🔍 “…” 로 검색 중</b>을 눌러 해제합니다.</li>
+                        <li>설정에서 연락처만 따로 <b>내보내기 · 불러오기</b> 할 수 있습니다.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>📊 프로젝트</h3>
+                    <p>엑셀 같은 표입니다. 현장별 · 건별로 표를 하나씩 만들어 씁니다.</p>
+                    <ul>
+                        <li><b>프로젝트 이름 우클릭</b> → 이름 변경 · 삭제</li>
+                        <li><b>열 제목 좌클릭</b>: 정렬 &nbsp;/&nbsp; <b>끌기</b>: 열 순서 옮기기 &nbsp;/&nbsp;
+                            <b>우클릭</b>: 필터 · 열 편집 · 열 추가/삭제</li>
+                        <li><b>#</b>(맨 왼쪽 칸) 클릭 → 정렬을 풀고 원래 순서로 되돌립니다.</li>
+                        <li><b>행 번호를 끌어서</b> 줄 순서를 바꿉니다. 행 번호 우클릭 → 행 추가 · 삭제</li>
+                        <li><span class="help-key">Ctrl+V</span> 엑셀에서 그대로 붙여넣기 —
+                            빈 표에 <b>제목 줄까지 함께</b> 붙이면 열이 자동으로 만들어집니다.</li>
+                        <li><span class="help-key">Ctrl+Z</span> 되돌리기 &nbsp;/&nbsp; <span class="help-key">Ctrl+Y</span> 다시</li>
+                        <li><b>🔍 검색</b> 또는 <span class="help-key">Ctrl+F</span> — 어느 칸에든 걸리면 그 줄만 보여줍니다.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>📁 문서 보관함</h3>
+                    <ul>
+                        <li>한 항목에 <b>제목 · 내용 · 붙임파일</b>을 함께 담습니다.
+                            자주 쓰는 문구를 넣어두고 <b>내용 복사</b>로 꺼내 써도 됩니다.</li>
+                        <li>파일을 <b>화면에 끌어다 놓으면</b> 바로 새 문서 창이 열리면서 붙습니다.
+                            <b>📎 파일 첨부</b>로 골라도 됩니다.</li>
+                        <li>붙임파일을 누르면 그 파일이 열립니다. <b>문서 우클릭</b> → 수정 · 폴더에서 보기 · 지우기</li>
+                        <li>⚠️ 파일은 <b>복사하지 않고 원본 위치만 기억합니다.</b> 원본을 옮기거나 지우면
+                            ⚠️ 로 표시됩니다. 문서를 지워도 원본 파일은 지워지지 않습니다.</li>
+                        <li><b>🔍 검색</b> 또는 <span class="help-key">Ctrl+F</span> — 제목 · 내용 · 파일 이름에서 찾습니다.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>🔍 전체 검색</h3>
+                    <p>오른쪽 위 <b>🔍 전체 검색</b> 또는 <span class="help-key">Ctrl+Shift+F</span>.
+                       업무 · 연락처 · 프로젝트 표 · 일정 · 메모를 <b>한 번에</b> 훑습니다.
+                       고객번호 하나만 쳐도 관련된 것이 전부 걸리고, 프로젝트 표는 어느 열 · 몇 행인지까지 알려줍니다.</p>
+                </div>
+
+                <div class="help-sec">
+                    <h3>⌨️ 빠른 등록 (F4)</h3>
+                    <p>다른 프로그램을 쓰는 중에도 <span class="help-key">F4</span> 한 번이면 작은 창이 떠서
+                       <b>업무 · 일정 · 연락처</b>를 바로 넣을 수 있습니다. 통화 중에 쓰라고 만든 기능입니다.</p>
+                    <ul>
+                        <li>넣고 나면 창이 알아서 사라지고, 하던 일로 돌아갑니다.</li>
+                        <li>단축키는 설정에서 바꿀 수 있습니다. <span class="help-key">F4</span>는 윈도우 전체에서 그 키를
+                            가져오므로 엑셀의 절대참조($ 고정)를 못 쓰게 됩니다.
+                            엑셀을 많이 쓰신다면 <span class="help-key">ScrollLock</span>으로 바꾸면 아무것도 뺏기지 않습니다.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>💾 데이터와 백업</h3>
+                    <ul>
+                        <li>모든 내용은 이 컴퓨터의 데이터 폴더에 파일 하나로 저장됩니다.
+                            설정의 <b>📂 데이터 폴더 열기</b>로 직접 볼 수 있습니다.</li>
+                        <li>앱을 켤 때 하루 한 번 <b>backups</b> 폴더에 복사본을 만들고 최근 7개를 보관합니다.</li>
+                        <li>다른 PC로 옮길 때만 설정의 <b>수동 백업 (.json)</b> · <b>복구</b>를 쓰면 됩니다.</li>
+                        <li>창을 닫아도 프로그램은 <b>트레이(시계 옆)</b>에 남아 알림을 계속 띄웁니다.
+                            완전히 끄려면 트레이 아이콘 우클릭 → <b>완전 종료</b>.</li>
+                    </ul>
+                </div>
+
+                <div class="help-sec">
+                    <h3>단축키 모음</h3>
+                    <ul>
+                        <li><span class="help-key">F4</span> — 빠른 등록 (다른 프로그램에서도 됩니다)</li>
+                        <li><span class="help-key">Ctrl+Shift+F</span> — 전체 검색</li>
+                        <li><span class="help-key">Ctrl+F</span> — 지금 보고 있는 탭에서 검색 (연락처 · 프로젝트 · 문서 보관함)</li>
+                        <li><span class="help-key">Ctrl+V</span> / <span class="help-key">Ctrl+Z</span> / <span class="help-key">Ctrl+Y</span> — 프로젝트 표에서 붙여넣기 · 되돌리기 · 다시</li>
+                        <li><span class="help-key">Esc</span> — 검색창 닫기 · 표 편집 빠져나오기</li>
+                    </ul>
+                </div>
+
+            </div>
+            <div class="form-group full-width modal-actions" style="margin-top: 18px;">
+                <button type="button" class="btn btn-primary" onclick="closeHelp()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="docSearchModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2>🔍 문서 검색</h2>
+                <button class="btn-close" onclick="closeDocSearch()">✖</button>
+            </div>
+            <input type="text" id="docSearchInput" placeholder="제목 · 내용 · 파일 이름 …"
+                   style="width:100%; padding:12px 14px; border:1px solid #ccc; border-radius:4px; font-size:16px; box-sizing:border-box;"
+                   oninput="setDocSearch(this.value)"
+                   onkeydown="if(event.key==='Enter'||event.key==='Escape') closeDocSearch()">
+            <p class="search-hint" id="docSearchHint"></p>
+        </div>
+    </div>
+
     <div id="docContextMenu" class="context-menu">
         <ul>
             <li class="edit-btn" onclick="openDocModal(ctxDocId)">✏️ 수정하기</li>
@@ -830,7 +1005,6 @@
                 <button type="button" class="btn btn-primary" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
             </div>
         </div>
-        <p class="page-hint">💡 열 제목 좌클릭: 정렬 · 우클릭: 필터 / 업무 줄 우클릭: 수정·삭제</p>
 
         <div class="form-container" id="taskFormContainer" style="display: none;">
             <button class="btn-close" type="button" onclick="toggleTaskForm()" style="position: absolute; top: 15px; right: 20px;">✖</button>
@@ -871,7 +1045,6 @@
                 <button type="button" class="btn btn-primary" onclick="openContactForm(null)">➕ 새 연락처</button>
             </div>
         </div>
-        <p class="page-hint">💡 줄 좌클릭: 상세 기록 / 줄 우클릭: 수정·삭제 / 열 제목 우클릭: 필터 · Ctrl+F 로도 검색됩니다</p>
 
         <div class="contact-toolbar">
         </div>
@@ -889,7 +1062,6 @@
                 <button type="button" class="btn btn-primary" onclick="openNewSheet()">➕ 새 프로젝트</button>
             </div>
         </div>
-        <p class="page-hint">💡 프로젝트 이름 우클릭: 이름 변경·삭제 / 열 제목 좌클릭: 정렬 · 끌기: 열 옮기기 · 우클릭: 필터·열 편집 / # 클릭: 원래 순서 / 행 번호 드래그: 순서 변경 / Ctrl+V 엑셀에서 붙여넣기 · Ctrl+Z 되돌리기</p>
 
         <div class="sheet-bar" id="sheetBar"></div>
 
@@ -910,14 +1082,12 @@
             <h2>📁 문서 보관함</h2>
             <span class="contact-count" id="docCount">0개</span>
             <div class="page-actions">
+                <button type="button" class="btn btn-secondary" onclick="openDocSearch()" title="Ctrl+F">🔍 검색</button>
                 <button type="button" class="btn btn-primary" onclick="openDocModal(null)">➕ 새 문서</button>
             </div>
         </div>
-        <p class="page-hint">💡 제목 · 내용 · 붙임파일을 한 항목으로 묶습니다 · 파일을 화면에 끌어다 놓으면 바로 새 문서가 열립니다<br>파일은 복사하지 않고 원본 위치를 기억합니다. 원본을 옮기면 ⚠️ 로 표시됩니다.</p>
 
-        <input type="text" id="phraseSearch" placeholder="🔍 문서 · 문구 검색"
-               oninput="renderPhrases(); renderDocs();"
-               style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px; margin-bottom:14px;">
+        <div id="docSearchChip" class="search-chip" style="display: none;"></div>
 
         <div id="docListContainer"></div>
     </div>
@@ -925,6 +1095,9 @@
     <div id="settings" class="tab-content">
         <div class="page-head">
             <h2>⚙️ 설정</h2>
+            <div class="page-actions">
+                <button type="button" class="btn btn-primary" onclick="openHelp()">❓ 도움말</button>
+            </div>
         </div>
         
         <div class="setting-section">
@@ -2692,6 +2865,17 @@
                 '<button type="button" onclick="clearContactSearch()">✖ 해제</button>';
         }
 
+        // ── 도움말 ────────────────────────────────────────────────────
+
+        function openHelp() {
+            document.getElementById('helpModal').style.display = 'flex';
+            document.querySelector('#helpModal .help-body').scrollTop = 0;
+        }
+
+        function closeHelp() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
         // ── 토스트 (alert 대신) ───────────────────────────────────────
 
         let toastTimer = null;
@@ -2720,6 +2904,12 @@
                 if (sheetTab && sheetTab.classList.contains('active')) {
                     e.preventDefault();
                     openSheetSearch();
+                    return;
+                }
+                const docTab = document.getElementById('phrases');
+                if (docTab && docTab.classList.contains('active')) {
+                    e.preventDefault();
+                    openDocSearch();
                 }
             }
         });
@@ -4216,6 +4406,7 @@
         // ══════════════════════════════════════════════════════════════
 
         let docs = [];
+        let docSearchText = '';
         let ctxDocId = null;
         let editingDocId = null;
         let draftFiles = [];
@@ -4418,8 +4609,7 @@
             const box = document.getElementById('docListContainer');
             if (!box) return;
 
-            const searchEl = document.getElementById('phraseSearch');
-            const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            const q = docSearchText.trim().toLowerCase();
             const list = q
                 ? docs.filter(d =>
                     String(d.title || '').toLowerCase().includes(q) ||
@@ -4429,6 +4619,8 @@
 
             const count = document.getElementById('docCount');
             if (count) count.innerText = docs.length + '개';
+            renderDocSearchChip();
+            updateDocSearchHint(list.length);
 
             if (!list.length) {
                 box.innerHTML = '<p class="contact-empty">' +
@@ -4458,6 +4650,51 @@
                     (files ? '<div class="file-chips">' + files + '</div>' : '') +
                 '</div>';
             }).join('');
+        }
+
+        // ── 문서 검색 ─────────────────────────────────────────────────
+
+        function openDocSearch() {
+            document.getElementById('docSearchModal').style.display = 'flex';
+            const input = document.getElementById('docSearchInput');
+            input.value = docSearchText;
+            input.focus();
+            input.select();
+            renderDocs();
+        }
+
+        // 📌 팝업을 닫아도 찾은 상태는 남는다. 목록 위의 표시가 왜 줄었는지 알려준다.
+        function closeDocSearch() {
+            document.getElementById('docSearchModal').style.display = 'none';
+        }
+
+        function setDocSearch(v) {
+            docSearchText = v || '';
+            renderDocs();
+        }
+
+        function clearDocSearch() {
+            const input = document.getElementById('docSearchInput');
+            if (input) input.value = '';
+            setDocSearch('');
+        }
+
+        function updateDocSearchHint(found) {
+            const el = document.getElementById('docSearchHint');
+            if (!el) return;
+            el.innerText = docSearchText.trim()
+                ? found + '개 찾음'
+                : '제목 · 내용 · 붙임파일 이름에서 찾습니다. 닫아도 찾은 상태는 남습니다.';
+        }
+
+        function renderDocSearchChip() {
+            const chip = document.getElementById('docSearchChip');
+            if (!chip) return;
+            const q = docSearchText.trim();
+            if (!q) { chip.style.display = 'none'; return; }
+            chip.style.display = 'inline-flex';
+            chip.innerHTML = '🔍 “' + esc(q) + '” 로 검색 중' +
+                '<button type="button" onclick="clearDocSearch()">✖ 해제</button>';
         }
 
         // 파일을 화면이나 내용칸에 끌어다 놓으면 붙는다.
