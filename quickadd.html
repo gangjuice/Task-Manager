@@ -36,16 +36,19 @@
             padding: 9px 10px; border: 1px solid #ccc; border-radius: 4px;
             font-size: 14px; font-family: inherit; box-sizing: border-box;
         }
+        /* 📌 번호·날짜 칸은 글꼴을 바꾸지 않고 숫자 폭만 고정한다.
+           일반 글꼴은 1 이 0 보다 좁아 자릿수가 어긋나 보인다. */
+        #qPhone, #tDue, #rDate, #rTime { font-variant-numeric: tabular-nums; }
         input:focus { outline: none; border-color: #3498db; }
         #qName  { width: 106px; }
-        #qPhone { width: 146px; font-family: 'Consolas', monospace; }
+        #qPhone { width: 146px; }
         #qCustomerNo { width: 130px; }
         #qMemo  { flex: 1; min-width: 0; }
         #tContent { flex: 1; min-width: 0; }
-        #tDue { width: 150px; font-family: 'Consolas', monospace; }
+        #tDue { width: 150px; }
         #rTitle { flex: 1; min-width: 0; }
-        #rDate { flex: 1; font-family: 'Consolas', monospace; }
-        #rTime { width: 118px; font-family: 'Consolas', monospace; }
+        #rDate { flex: 1; }
+        #rTime { width: 118px; }
         .rbox { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #95a5a6; white-space: nowrap; cursor: pointer; }
         .rbox input { cursor: pointer; }
 
