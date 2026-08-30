@@ -22,41 +22,27 @@
 
     const toCommand = ch => String(ch).replace(/-/g, '_');
 
-    // 아직 Rust 쪽에 안 옮긴 것들. 부르면 경고만 남기고 넘어간다.
-    const NOT_YET = new Set([
-        'add-contact', 'add-event', 'add-note', 'add-task',
-        'check-files', 'open-file', 'pick-files', 'set-hotkey',
-        'close-quick-add', 'open-widget', 'reminder-done', 'reminder-snooze',
-        'set-always-on-top', 'set-autostart', 'show-in-folder'
-    ]);
-
-    const missing = new Set();
-    function warnMissing(ch) {
-        if (missing.has(ch)) return;
-        missing.add(ch);
-        console.warn('[shim] 아직 안 옮긴 채널:', ch);
+    // 채널 이름을 명령 이름으로 바꿔 부른다. 없는 명령은 Tauri 가 에러를 주므로
+    // 조용히 실패하지 않는다 — 옮기다 만 것이 있으면 콘솔에 그대로 드러난다.
+    const failed = new Set();
+    function noteFailure(ch, err) {
+        if (failed.has(ch)) return;
+        failed.add(ch);
+        console.error('[shim] 채널 실패:', ch, err);
     }
 
     const listeners = new Map();   // 채널 → Tauri unlisten 함수
 
     const ipcRenderer = {
         invoke(channel, ...args) {
-            if (NOT_YET.has(channel)) {
-                warnMissing(channel);
-                return Promise.resolve(null);
-            }
             // Tauri 명령은 인자를 이름 붙은 객체로 받는다. 전부 payload 하나로 넘긴다.
             return T.core.invoke(toCommand(channel), { payload: args[0] ?? null })
-                .catch(err => {
-                    console.error('[shim] invoke 실패:', channel, err);
-                    return null;
-                });
+                .catch(err => { noteFailure(channel, err); return null; });
         },
 
         send(channel, ...args) {
-            if (NOT_YET.has(channel)) { warnMissing(channel); return; }
             T.core.invoke(toCommand(channel), { payload: args[0] ?? null })
-                .catch(err => console.error('[shim] send 실패:', channel, err));
+                .catch(err => noteFailure(channel, err));
         },
 
         on(channel, handler) {
@@ -79,5 +65,5 @@
         return {};
     };
 
-    window.__shimMissing = missing;   // 콘솔에서 무엇이 빠졌는지 볼 수 있게
+    window.__shimFailed = failed;   // 콘솔에서 무엇이 안 되는지 볼 수 있게
 })();
