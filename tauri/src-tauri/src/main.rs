@@ -408,9 +408,15 @@ fn broadcast_except(app: &AppHandle, from: &str, patch: Value) {
     });
 }
 
+/// 📌 Electron 은 트레이 아이콘의 풍선(Shell_NotifyIcon)을 썼다. 여기서는
+/// 윈도우 토스트를 쓰는데, 토스트는 앱이 시작 메뉴에 등록돼 있어야 뜬다.
+/// 설치하지 않고 exe 만 실행하면 조용히 안 뜬다 — 그래서 결과를 남긴다.
 fn toast(app: &AppHandle, title: &str, body: &str) {
     use tauri_plugin_notification::NotificationExt;
-    let _ = app.notification().builder().title(title).body(body).show();
+    match app.notification().builder().title(title).body(body).show() {
+        Ok(()) => log(&format!("알림 보냄: {} / {}", title, body)),
+        Err(e) => log(&format!("알림 실패: {} / {} — {}", title, body, e)),
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -974,6 +980,7 @@ fn notify_deadlines(app: &AppHandle) {
             week_n += 1;
         }
     }
+    log(&format!("마감 셈: 오늘 {}건 · 이번 주 {}건 (업무 {}개 중)", today_n, week_n, tasks.len()));
     if today_n == 0 && week_n == 0 {
         return;
     }
