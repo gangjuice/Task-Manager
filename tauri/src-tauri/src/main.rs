@@ -23,6 +23,19 @@ use tauri_plugin_opener::OpenerExt;
 
 const DEFAULT_HOTKEY: &str = "F4";
 
+/// 📌 창이 안 뜨는 것 같은 문제는 화면에 아무것도 안 남는다. 파일로 남긴다.
+/// %APPDATA%\Task Manager	auri.log
+fn log(msg: &str) {
+    use std::io::Write;
+    let line = format!("{} {}
+", Local::now().format("%H:%M:%S"), msg);
+    let p = data_dir().join("tauri.log");
+    let _ = fs::create_dir_all(data_dir());
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(p) {
+        let _ = f.write_all(line.as_bytes());
+    }
+}
+
 // ══════════════════════════════════════════════════════════════════
 // 데이터 파일
 // ══════════════════════════════════════════════════════════════════
@@ -221,6 +234,7 @@ fn focus_main(app: &AppHandle) {
 /// 메모 위젯 — 스티키 메모처럼 놔둔 자리에 그대로 있어야 한다.
 fn open_widget_window(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("widget") {
+        log("위젯이 이미 있음 — 다시 보이게 함");
         let _ = w.show();
         let _ = w.set_focus();
         return;
@@ -260,13 +274,17 @@ fn open_widget_window(app: &AppHandle) {
         }
     }
 
-    if let Ok(win) = b.build() {
+    match b.build() {
+        Err(e) => log(&format!("위젯 창 만들기 실패: {}", e)),
+        Ok(win) => {
+        log("위젯 창 만듦");
         let h = app.clone();
         win.on_window_event(move |e| {
             if matches!(e, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
                 remember_widget_bounds(&h);
             }
         });
+        }
     }
 }
 
@@ -311,7 +329,8 @@ fn open_quick_add(app: &AppHandle) {
     }
     let (ax, ay, aw, ah) = cursor_work_area(app);
     let (w, h) = (470.0, 280.0);
-    let _ = WebviewWindowBuilder::new(app, "quickadd", WebviewUrl::App("quickadd.html".into()))
+    log("빠른 등록 창 만드는 중");
+    let r = WebviewWindowBuilder::new(app, "quickadd", WebviewUrl::App("quickadd.html".into()))
         .title("빠른 등록")
         .inner_size(w, h)
         .position(ax + (aw - w) / 2.0, ay + (ah - h) / 2.0)
@@ -322,6 +341,9 @@ fn open_quick_add(app: &AppHandle) {
         .skip_taskbar(true)
         .focused(true)
         .build();
+    if let Err(e) = r {
+        log(&format!("빠른 등록 창 실패: {}", e));
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -441,6 +463,7 @@ fn show_in_folder(payload: Option<String>, app: AppHandle) {
 
 #[tauri::command]
 fn open_widget(app: AppHandle) {
+    log("open_widget 불림");
     open_widget_window(&app);
 }
 
@@ -968,6 +991,7 @@ fn main() {
                 })
                 .build(app)?;
 
+            log("── 시작 ──");
             apply_hotkey_from_settings(&handle);
 
             // ── 메모 위젯의 크기·위치를 기억한다 ──
