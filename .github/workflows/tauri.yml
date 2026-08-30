@@ -1,11 +1,19 @@
-# Tauri 시험판 빌드 — 용량이 얼마나 나오는지 재려고 돌린다.
+# Tauri 판 빌드.
 # 로컬에 Rust 와 MSVC 를 깔지 않아도 되도록 여기서 빌드한다
 # (윈도우 러너에는 둘 다 이미 들어 있다).
-name: tauri-size-test
+name: build-tauri
 
 on:
   push:
-    branches: [tauri-port]
+    branches: [main, tauri-port]
+    paths:
+      - 'tauri/**'
+      - 'index.html'
+      - 'widget.html'
+      - 'quickadd.html'
+      - 'reminder.html'
+      - 'assets/**'
+      - '.github/workflows/tauri.yml'
   workflow_dispatch:
 
 jobs:
@@ -51,7 +59,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tauri-시험판
+          name: TaskManager-Tauri
           path: |
             tauri/src-tauri/target/release/bundle/nsis/*.exe
             tauri/src-tauri/target/release/*.exe
