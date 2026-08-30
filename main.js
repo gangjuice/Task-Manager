@@ -16,7 +16,7 @@ const dataDir = app.getPath('userData');
 const dataFilePath = process.env.TM_DATA_FILE || path.join(dataDir, '업무관리_데이터.json');
 const legacyDataPath = path.join(app.getPath('documents'), '업무관리_데이터.json');
 let migratedFrom = null;
-const iconPath = path.join(__dirname, 'assets', 'rocket.png');
+const iconPath = path.join(__dirname, 'assets', 'icon.png');
 
 let mainWindow;
 let widgetWindow = null;

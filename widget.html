@@ -81,7 +81,6 @@
             <label class="pin" title="항상 맨 위에 두기">
                 <input type="checkbox" id="alwaysOnTop" checked> 위
             </label>
-            <button class="icon" onclick="openMain()" title="업무 창 열기">🖥️</button>
             <button class="icon close" onclick="closeSelf()" title="메모 닫기">✖</button>
         </div>
     </div>
@@ -95,7 +94,6 @@
         const $ = id => document.getElementById(id);
         let memoSaveTimer = null;
 
-        function openMain()  { ipcRenderer.send('show-main'); }
         function closeSelf() { window.close(); }
 
         $('alwaysOnTop').addEventListener('change', function () {
