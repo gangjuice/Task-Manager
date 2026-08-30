@@ -1,8 +1,4 @@
-// 번개 아이콘 — 초록 둥근 사각형 + 흰 번개
-//
-// 획(선) 대신 면으로 채운 번개 실루엣이다. 뾰족한 끝만 둥글리고
-// 안쪽 꺾임은 날카롭게 두면 번개다움이 산다. 번개 아래에는 아주 옅은
-// 그림자를 깔아 바탕에서 살짝 떠 보이게 했다.
+// 육각 통제 패널 아이콘 — 초록 둥근 사각형 + 육각 패널
 //
 // 브라우저를 거치지 않고 픽셀을 직접 계산한다. 크기마다 새로 그리므로
 // 16px 에서도 흐려지지 않는다.
@@ -13,88 +9,64 @@ const zlib = require('zlib');
 const ROOT = process.argv[2] || '.';
 const SIZES = [16, 24, 32, 48, 64, 128, 256];
 
-function num(k, dflt) { return process.env[k] ? parseFloat(process.env[k]) : dflt; }
+function num(k, d) { return process.env[k] ? parseFloat(process.env[k]) : d; }
+function str(k, d) { return process.env[k] || d; }
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+// ── 색 ────────────────────────────────────────────────────────────
+const TOP  = hex(str('TOP',  '#12A85A'));   // 바탕 위
+const BOT  = hex(str('BOT',  '#0A5F35'));   // 바탕 아래
+const P1   = hex(str('P1',   '#FFFFFF'));   // 바깥 육각 · 살
+const P2   = hex(str('P2',   '#FFD400'));   // 안쪽 육각 · 중심점
+
+const RADIUS = 22;
+const FILL   = num('FILL', 1.0);
 
 // ── 모양 (100 x 100 칸 기준) ──────────────────────────────────────
-// 📌 잘 그려진 번개는 예외 없이 점대칭이다. 가운데를 기준으로 180° 돌리면
-// 자기 자신과 겹친다. 좌표를 여섯 개 다 손으로 적으면 한두 칸씩 어긋나
-// 삐뚤어 보이므로, 위쪽 절반만 정하고 아래쪽은 계산해서 만든다.
-//
-//        (50+AX, 50-AY)  꼭대기
-//              ///             /  //   (50-BX, 50+BY)  ──  (50-CX, 50+BY)     ← 허리 (왼쪽)
-//
-const AX = num('AX', 8);    // 꼭대기가 가운데서 오른쪽으로 치우친 정도
-const AY = num('AY', 40);   // 꼭대기 높이
-const BX = num('BX', 28);   // 허리 바깥쪽 폭
-const BY = num('BY', 9);    // 허리가 가운데서 벌어진 정도
-const CX = num('CX', 3);    // 허리 안쪽 폭
-
-function mirror(p) { return [100 - p[0], 100 - p[1]]; }
-
-const HALF = [
-    [50 + AX, 50 - AY],   // 꼭대기
-    [50 - BX, 50 + BY],   // 왼쪽 허리 바깥
-    [50 - CX, 50 + BY]    // 왼쪽 허리 안쪽
-];
-const BOLT = process.env.BOLT ? JSON.parse(process.env.BOLT)
-                              : [HALF[0], HALF[1], HALF[2],
-                                 mirror(HALF[0]), mirror(HALF[1]), mirror(HALF[2])];
-
-const CORNER   = num('CORNER', 2.6);    // 번개 끝을 둥글리는 정도
-const FILL     = num('FILL', 0.92);     // 타일에서 차지할 비율
-const RADIUS   = 22;                    // 타일 모서리
-const TOP      = [46, 204, 113];        // #2ECC71
-const BOT      = [30, 148, 82];         // #1E9452
-const SHADOW   = [12, 74, 42];          // 번개 밑에 깔 어두운 초록
-const SH_DY    = num('SH_DY', 1.6);                   // 그림자를 내릴 거리
-const SH_BLUR  = num('SH_BLUR', 3.0);                   // 그림자가 흐려지는 폭
-const SH_MAX   = num('SH_MAX', 0);                  // 그림자 진하기
-
-
-// 둥글리기까지 넣어 실제 넓이를 재고, 가운데로 옮긴 뒤 한 번 더 줄인다.
-const xs = BOLT.map(p => p[0]), ys = BOLT.map(p => p[1]);
-const bx = [Math.min(...xs) - CORNER, Math.max(...xs) + CORNER];
-const by = [Math.min(...ys) - CORNER, Math.max(...ys) + CORNER];
-const dx = (100 - (bx[1] - bx[0])) / 2 - bx[0];
-const dy = (100 - (by[1] - by[0])) / 2 - by[0];
-const off = 50 - 50 * FILL;
-
-const P = BOLT.map(p => [(p[0] + dx) * FILL + off, (p[1] + dy) * FILL + off]);
-const RAD = CORNER * FILL;
-
-// 좌표를 손으로 고칠 수도 있으니, 그릴 때마다 점대칭인지 스스로 확인한다.
-[[0, 3], [1, 4], [2, 5]].forEach(([i, j]) => {
-    const sx = BOLT[i][0] + BOLT[j][0], sy = BOLT[i][1] + BOLT[j][1];
-    if (Math.abs(sx - 100) > 0.01 || Math.abs(sy - 100) > 0.01) {
-        console.error('번개가 점대칭이 아닙니다: (' + BOLT[i] + ') + (' + BOLT[j] +
-                      ') = (' + sx + ', ' + sy + ') — (100, 100) 이어야 합니다');
-        process.exit(1);
+// 정육각형은 꼭짓점 여섯 개를 60도 간격으로 찍어 만든다. 손으로 적으면
+// 반드시 어긋나므로 계산해서 만든다 (번개에서 같은 실수를 했다).
+function hexPts(r) {
+    const out = [];
+    for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 180) * (90 + i * 60);      // 위 꼭짓점부터 시작
+        out.push([50 + r * Math.cos(a), 50 - r * Math.sin(a)]);
     }
-});
+    return out;
+}
 
-// ── 거리 계산 ─────────────────────────────────────────────────────
+// 📌 세 겹(바깥 육각 · 안쪽 육각 · 중심점)을 16px 안에 다 넣으면 서로 뭉쳐
+// 그냥 동그란 얼룩이 된다. 크기마다 따로 그리므로, 작을수록 겹을 덜어내고
+// 남는 것을 굵게 키운다. 상용 아이콘 세트가 쓰는 방법이다.
+function geomFor(size) {
+    if (size >= 64) return { inner: true,  rOut: 33, wOut: 4.6, wIn: 3.2, wSpk: 3.0, dot: 4.6 };
+    if (size >= 48) return { inner: true,  rOut: 33, wOut: 5.4, wIn: 3.6, wSpk: 3.4, dot: 4.8 };
+    if (size >= 32) return { inner: true,  rOut: 33, wOut: 6.6, wIn: 4.2, wSpk: 4.0, dot: 4.8 };
+    if (size >= 24) return { inner: false, rOut: 32, wOut: 8.5, dot: 8.0 };
+    return                 { inner: false, rOut: 31, wOut: 10,  dot: 8.5 };
+}
 
-function distToSeg(px, py, ax, ay, bx2, by2) {
-    const vx = bx2 - ax, vy = by2 - ay;
-    const wx = px - ax, wy = py - ay;
+const OUT_PTS = {};   // 반지름별 육각형은 한 번만 만들어 둔다
+function outer(r) { return OUT_PTS[r] || (OUT_PTS[r] = hexPts(r)); }
+const IN_PTS = hexPts(num('R_IN', 17));
+// 살 — 위 꼭짓점과 아래 양옆 꼭짓점에서 안쪽 육각으로 잇는다.
+const SPOKE_IDX = [0, 2, 4];
+
+// ── 거리 ──────────────────────────────────────────────────────────
+function distToSeg(px, py, ax, ay, bx, by) {
+    const vx = bx - ax, vy = by - ay;
     const len2 = vx * vx + vy * vy;
-    let t = len2 ? (wx * vx + wy * vy) / len2 : 0;
+    let t = len2 ? ((px - ax) * vx + (py - ay) * vy) / len2 : 0;
     t = t < 0 ? 0 : (t > 1 ? 1 : t);
     return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
 }
 
-// 다각형까지의 부호 있는 거리 — 안이면 음수. 여기에 반지름을 더해
-// 비교하면 볼록한 꼭짓점만 둥글게 부푼다 (안쪽 꺾임은 날카롭게 남는다).
-function sdPoly(px, py) {
-    let d = Infinity, inside = false;
-    const n = P.length;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        d = Math.min(d, distToSeg(px, py, P[i][0], P[i][1], P[j][0], P[j][1]));
-        const yi = P[i][1], yj = P[j][1], xi = P[i][0], xj = P[j][0];
-        if ((yi > py) !== (yj > py) &&
-            px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
-    }
-    return inside ? -d : d;
+// 다각형 테두리까지의 거리. 이 값이 굵기의 절반 이하면 선 위다
+// (모서리가 저절로 둥글게 이어진다).
+function distToRing(pts, px, py) {
+    let d = Infinity;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++)
+        d = Math.min(d, distToSeg(px, py, pts[i][0], pts[i][1], pts[j][0], pts[j][1]));
+    return d;
 }
 
 function insideRounded(x, y) {
@@ -103,7 +75,19 @@ function insideRounded(x, y) {
     return ox * ox + oy * oy <= RADIUS * RADIUS;
 }
 
-const clamp01 = v => v < 0 ? 0 : (v > 1 ? 1 : v);
+// 이 점이 어느 색인지 — 0 바탕, 1 바깥(P1), 2 안쪽(P2)
+function inkAt(g, x, y) {
+    if (distToRing(outer(g.rOut), x, y) <= g.wOut / 2) return 1;
+    if (g.inner) {
+        for (const i of SPOKE_IDX) {
+            const a = outer(g.rOut)[i], b = IN_PTS[i];
+            if (distToSeg(x, y, a[0], a[1], b[0], b[1]) <= g.wSpk / 2) return 1;
+        }
+    }
+    if (Math.hypot(x - 50, y - 50) <= g.dot) return 2;
+    if (g.inner && distToRing(IN_PTS, x, y) <= g.wIn / 2) return 2;
+    return 0;
+}
 
 // ── 그리기 ────────────────────────────────────────────────────────
 const SS = num('SS', 12);
@@ -111,10 +95,11 @@ const SS = num('SS', 12);
 function render(size) {
     const buf = Buffer.alloc(size * size * 4);
     const step = 100 / size / SS;
+    const g = geomFor(size);
 
     for (let py = 0; py < size; py++) {
         for (let px = 0; px < size; px++) {
-            let hits = 0, bolt = 0, grad = 0, shade = 0;
+            let hits = 0, grad = 0, a1 = 0, a2 = 0;
 
             for (let sy = 0; sy < SS; sy++) {
                 for (let sx = 0; sx < SS; sx++) {
@@ -123,23 +108,19 @@ function render(size) {
                     if (!insideRounded(x, y)) continue;
                     hits++;
                     grad += y / 100;
-                    if (sdPoly(x, y) <= RAD) bolt++;
-                    // 그림자는 가장자리가 부드러워야 하므로 거리로 직접 재서 섞는다.
-                    shade += clamp01(1 - (sdPoly(x, y - SH_DY) - RAD) / SH_BLUR);
+                    const k = inkAt(g, x, y);
+                    if (k === 1) a1++; else if (k === 2) a2++;
                 }
             }
 
             const o = (py * size + px) * 4;
             if (!hits) { buf.writeUInt32LE(0, o); continue; }
 
-            const g = grad / hits;
-            const w = bolt / hits;
-            const s = (shade / hits) * SH_MAX;
-
+            const gv = grad / hits, f1 = a1 / hits, f2 = a2 / hits;
             for (let i = 0; i < 3; i++) {
-                let c = TOP[i] + (BOT[i] - TOP[i]) * g;   // 바탕 그러데이션
-                c = c * (1 - s) + SHADOW[i] * s;          // 그림자
-                c = c * (1 - w) + 255 * w;                // 흰 번개
+                let c = TOP[i] + (BOT[i] - TOP[i]) * gv;
+                c = c * (1 - f1) + P1[i] * f1;
+                c = c * (1 - f2) + P2[i] * f2;
                 buf[o + i] = Math.round(c);
             }
             buf[o + 3] = Math.round(255 * hits / (SS * SS));
@@ -148,14 +129,10 @@ function render(size) {
     return buf;
 }
 
-// ── PNG ───────────────────────────────────────────────────────────
+// ── PNG / ICO ─────────────────────────────────────────────────────
 const CRC = (() => {
     const t = new Int32Array(256);
-    for (let n = 0; n < 256; n++) {
-        let c = n;
-        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-        t[n] = c;
-    }
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c; }
     return t;
 })();
 function crc32(b) { let c = -1; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ -1) >>> 0; }
@@ -176,13 +153,10 @@ function toPNG(rgba, size) {
     }
     return Buffer.concat([
         Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
-        chunk('IHDR', ihdr),
-        chunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
+        chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
         chunk('IEND', Buffer.alloc(0))
     ]);
 }
-
-// ── ICO ───────────────────────────────────────────────────────────
 function buildIco(entries) {
     const head = Buffer.alloc(6);
     head.writeUInt16LE(1, 2); head.writeUInt16LE(entries.length, 4);
@@ -192,8 +166,7 @@ function buildIco(entries) {
         const o = i * 16;
         dir.writeUInt8(e.size >= 256 ? 0 : e.size, o);
         dir.writeUInt8(e.size >= 256 ? 0 : e.size, o + 1);
-        dir.writeUInt16LE(1, o + 4);
-        dir.writeUInt16LE(32, o + 6);
+        dir.writeUInt16LE(1, o + 4); dir.writeUInt16LE(32, o + 6);
         dir.writeUInt32LE(e.png.length, o + 8);
         dir.writeUInt32LE(offset, o + 12);
         offset += e.png.length;
@@ -201,7 +174,6 @@ function buildIco(entries) {
     return Buffer.concat([head, dir, ...entries.map(e => e.png)]);
 }
 
-// ── 실행 ──────────────────────────────────────────────────────────
 function zoom(size, z) {
     const src = render(size), w = size * z;
     const out = Buffer.alloc(w * w * 4);
@@ -212,6 +184,7 @@ function zoom(size, z) {
     return toPNG(out, w);
 }
 
+// ── 실행 ──────────────────────────────────────────────────────────
 if (process.env.PREVIEW) {
     const p = process.env.PREVIEW;
     fs.writeFileSync(p + '-256.png', toPNG(render(256), 256));
@@ -228,22 +201,8 @@ if (process.env.PREVIEW) {
     fs.writeFileSync(path.join(ROOT, 'build', 'icon.ico'), buildIco(entries));
     console.log('  → build/icon.ico   (설치 파일 · exe 아이콘)');
     // 📌 build/ 는 electron-builder 의 재료 폴더라 앱 안으로 안 들어간다.
-    // 실행 중 창·트레이가 쓸 몫은 assets/ 에 따로 둔다.
     fs.writeFileSync(path.join(ROOT, 'assets', 'icon.ico'), buildIco(entries));
     console.log('  → assets/icon.ico  (창 · 트레이 — 크기별로 다 들어 있다)');
-    fs.writeFileSync(path.join(ROOT, 'assets', 'icon.png'),
-                     entries.find(e => e.size === 256).png);
+    fs.writeFileSync(path.join(ROOT, 'assets', 'icon.png'), entries.find(e => e.size === 256).png);
     console.log('  → assets/icon.png  (알림 · 윈도우 밖 환경)');
-
-    const prev = process.env.TMP;
-    fs.writeFileSync(path.join(prev, 'bolt-256.png'), entries.find(e => e.size === 256).png);
-    [16, 32].forEach(s => {
-        const src = render(s), z = 8, w = s * z;
-        const out = Buffer.alloc(w * w * 4);
-        for (let y = 0; y < w; y++) for (let x = 0; x < w; x++) {
-            const so = (Math.floor(y / z) * s + Math.floor(x / z)) * 4;
-            src.copy(out, (y * w + x) * 4, so, so + 4);
-        }
-        fs.writeFileSync(path.join(prev, 'bolt-' + s + '-zoom.png'), toPNG(out, w));
-    });
 }
