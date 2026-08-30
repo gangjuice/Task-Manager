@@ -1,0 +1,57 @@
+# Tauri 시험판 빌드 — 용량이 얼마나 나오는지 재려고 돌린다.
+# 로컬에 Rust 와 MSVC 를 깔지 않아도 되도록 여기서 빌드한다
+# (윈도우 러너에는 둘 다 이미 들어 있다).
+name: tauri-size-test
+
+on:
+  push:
+    branches: [tauri-port]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust 준비
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 빌드 결과 캐시
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - name: 화면 파일 복사 + 껍데기 주입
+        working-directory: tauri
+        run: node sync-ui.mjs
+
+      - name: Tauri CLI 설치
+        working-directory: tauri
+        run: npm install
+
+      - name: 빌드
+        working-directory: tauri
+        run: npx tauri build
+
+      - name: 용량 재기
+        working-directory: tauri
+        shell: bash
+        run: |
+          echo "════════ 용량 ════════"
+          find src-tauri/target/release -maxdepth 1 -name "*.exe" -exec ls -l {} \; \
+            | awk '{ printf "  실행 파일    %.2f MB  %s\n", $5/1048576, $9 }'
+          find src-tauri/target/release/bundle -name "*.exe" -exec ls -l {} \; \
+            | awk '{ printf "  설치 파일    %.2f MB  %s\n", $5/1048576, $9 }'
+          echo "══════════════════════"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauri-시험판
+          path: |
+            tauri/src-tauri/target/release/bundle/nsis/*.exe
+            tauri/src-tauri/target/release/*.exe

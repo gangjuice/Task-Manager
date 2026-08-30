@@ -1,0 +1,12 @@
+{
+  "name": "task-manager-tauri",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "sync": "node sync-ui.mjs",
+    "build": "node sync-ui.mjs && tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
