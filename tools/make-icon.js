@@ -40,15 +40,15 @@ const BOLT = process.env.BOLT ? JSON.parse(process.env.BOLT)
                               : [HALF[0], HALF[1], HALF[2],
                                  mirror(HALF[0]), mirror(HALF[1]), mirror(HALF[2])];
 
-const CORNER   = num('CORNER', 3.4);    // 번개 끝을 둥글리는 정도
-const FILL     = num('FILL', 0.86);     // 타일에서 차지할 비율
+const CORNER   = num('CORNER', 2.6);    // 번개 끝을 둥글리는 정도
+const FILL     = num('FILL', 0.92);     // 타일에서 차지할 비율
 const RADIUS   = 22;                    // 타일 모서리
 const TOP      = [46, 204, 113];        // #2ECC71
 const BOT      = [30, 148, 82];         // #1E9452
 const SHADOW   = [12, 74, 42];          // 번개 밑에 깔 어두운 초록
 const SH_DY    = num('SH_DY', 1.6);                   // 그림자를 내릴 거리
 const SH_BLUR  = num('SH_BLUR', 3.0);                   // 그림자가 흐려지는 폭
-const SH_MAX   = num('SH_MAX', 0.22);                  // 그림자 진하기
+const SH_MAX   = num('SH_MAX', 0);                  // 그림자 진하기
 
 
 // 둥글리기까지 넣어 실제 넓이를 재고, 가운데로 옮긴 뒤 한 번 더 줄인다.
@@ -106,7 +106,7 @@ function insideRounded(x, y) {
 const clamp01 = v => v < 0 ? 0 : (v > 1 ? 1 : v);
 
 // ── 그리기 ────────────────────────────────────────────────────────
-const SS = 4;
+const SS = num('SS', 12);
 
 function render(size) {
     const buf = Buffer.alloc(size * size * 4);
@@ -202,11 +202,22 @@ function buildIco(entries) {
 }
 
 // ── 실행 ──────────────────────────────────────────────────────────
+function zoom(size, z) {
+    const src = render(size), w = size * z;
+    const out = Buffer.alloc(w * w * 4);
+    for (let y = 0; y < w; y++) for (let x = 0; x < w; x++) {
+        const so = (Math.floor(y / z) * size + Math.floor(x / z)) * 4;
+        src.copy(out, (y * w + x) * 4, so, so + 4);
+    }
+    return toPNG(out, w);
+}
+
 if (process.env.PREVIEW) {
-    // 시안 확인용 — 큰 그림 하나와 작은 크기들을 확대해 붙인 판
-    const big = toPNG(render(256), 256);
-    fs.writeFileSync(process.env.PREVIEW, big);
-    console.log('  → ' + process.env.PREVIEW);
+    const p = process.env.PREVIEW;
+    fs.writeFileSync(p + '-256.png', toPNG(render(256), 256));
+    fs.writeFileSync(p + '-32z.png', zoom(32, 8));
+    fs.writeFileSync(p + '-16z.png', zoom(16, 14));
+    console.log('  → ' + p + '-{256,32z,16z}.png');
 } else {
     const entries = SIZES.map(size => {
         const png = toPNG(render(size), size);
@@ -216,9 +227,13 @@ if (process.env.PREVIEW) {
     fs.mkdirSync(path.join(ROOT, 'build'), { recursive: true });
     fs.writeFileSync(path.join(ROOT, 'build', 'icon.ico'), buildIco(entries));
     console.log('  → build/icon.ico   (설치 파일 · exe 아이콘)');
+    // 📌 build/ 는 electron-builder 의 재료 폴더라 앱 안으로 안 들어간다.
+    // 실행 중 창·트레이가 쓸 몫은 assets/ 에 따로 둔다.
+    fs.writeFileSync(path.join(ROOT, 'assets', 'icon.ico'), buildIco(entries));
+    console.log('  → assets/icon.ico  (창 · 트레이 — 크기별로 다 들어 있다)');
     fs.writeFileSync(path.join(ROOT, 'assets', 'icon.png'),
                      entries.find(e => e.size === 256).png);
-    console.log('  → assets/icon.png  (창 · 트레이 · 알림)');
+    console.log('  → assets/icon.png  (알림 · 윈도우 밖 환경)');
 
     const prev = process.env.TMP;
     fs.writeFileSync(path.join(prev, 'bolt-256.png'), entries.find(e => e.size === 256).png);

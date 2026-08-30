@@ -16,7 +16,12 @@ const dataDir = app.getPath('userData');
 const dataFilePath = process.env.TM_DATA_FILE || path.join(dataDir, '업무관리_데이터.json');
 const legacyDataPath = path.join(app.getPath('documents'), '업무관리_데이터.json');
 let migratedFrom = null;
-const iconPath = path.join(__dirname, 'assets', 'icon.png');
+// 📌 윈도우에서는 .ico 를 쓴다. 크기별 그림(16·24·32…)이 다 들어 있어
+// 작업표시줄·제목줄에서 딱 맞는 것을 골라 쓴다. 256px PNG 한 장만 주면
+// 윈도우가 직접 줄이는데, 그 축소 품질이 나빠 가장자리가 우둘투둘해진다.
+const iconPath = process.platform === 'win32'
+    ? path.join(__dirname, 'assets', 'icon.ico')
+    : path.join(__dirname, 'assets', 'icon.png');
 
 let mainWindow;
 let widgetWindow = null;
