@@ -395,6 +395,13 @@ fn toast(app: &AppHandle, title: &str, body: &str) {
 // 명령 — 채널 이름의 - 를 _ 로 바꾼 것이 그대로 이름이 된다
 // ══════════════════════════════════════════════════════════════════
 
+/// 화면 안에서 난 오류를 파일 로그로 끌어온다. 창이 하얗게만 뜨면
+/// 콘솔을 볼 방법이 없어 원인을 알 수 없다.
+#[tauri::command]
+fn js_log(payload: Option<String>, window: tauri::Window) {
+    log(&format!("[{}] {}", window.label(), payload.unwrap_or_default()));
+}
+
 #[tauri::command]
 fn load_data() -> Value {
     Value::Object(read_doc())
