@@ -70,9 +70,15 @@ function showMainWindow() {
 }
 
 function createTray() {
-    const image = nativeImage.createFromPath(iconPath);
-    // 윈도우 트레이는 16px 기준이다. 256px 원본을 그대로 넘기면 뭉개진다.
-    tray = new Tray(image.isEmpty() ? image : image.resize({ width: 16, height: 16 }));
+    // 📌 윈도우에서는 .ico 경로를 그대로 넘긴다. 크기별 그림이 들어 있어
+    // 윈도우가 트레이에 맞는 것을 골라 쓴다. 여기서 resize 하면 그 그림을
+    // 버리고 큰 것을 줄여 쓰게 돼 오히려 뭉갠다.
+    if (process.platform === 'win32') {
+        tray = new Tray(iconPath);
+    } else {
+        const image = nativeImage.createFromPath(iconPath);
+        tray = new Tray(image.isEmpty() ? image : image.resize({ width: 16, height: 16 }));
+    }
     tray.setToolTip('Task Manager');
     tray.setContextMenu(Menu.buildFromTemplate([
         { label: '업무 창 열기', click: showMainWindow },
@@ -99,7 +105,7 @@ async function notifyTrayOnce() {
         tray.displayBalloon({
             icon: nativeImage.createFromPath(iconPath),
             title: 'Task Manager는 계속 실행 중입니다',
-            content: '창을 닫아도 트레이에 남아 있습니다. 완전히 끄려면 트레이의 로켓 아이콘을 우클릭하세요.'
+            content: '창을 닫아도 트레이에 남아 있습니다. 완전히 끄려면 트레이 아이콘을 우클릭하세요.'
         });
     } catch (e) {}
 }
@@ -154,7 +160,7 @@ function localDate(str) {
     return new Date(y, m - 1, d);
 }
 
-// 📌 D-day 는 TO DO 탭을 열어야 보인다. 앱을 켤 때 한 번 알려준다.
+// 📌 D-day 는 할 일 탭을 열어야 보인다. 앱을 켤 때 한 번 알려준다.
 // 기한이 지난 건은 세지 않는다 — 이미 아는 일이라 알림으로 또 보면 피로해진다.
 async function notifyDeadlines() {
     if (!tray) return;

@@ -750,7 +750,7 @@
                 </div>
 
                 <div class="help-sec">
-                    <h3>✏️ TO DO</h3>
+                    <h3>✅ 할 일</h3>
                     <ul>
                         <li>마감기한이 있는 업무를 관리합니다. 남은 날짜(D-day)가 자동으로 계산됩니다.</li>
                         <li><b>업무 줄 우클릭</b> → 🟡 하이라이트 · 수정 · 삭제</li>
@@ -961,7 +961,7 @@
     <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchTab(event, 'dashboard')">📅 캘린더</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'brainstorm')">💡 메모장</button>
-        <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">✏️ TO DO</button>
+        <button type="button" class="tab-btn" onclick="switchTab(event, 'master')">✅ 할 일</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'contacts')">📇 연락처</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'sheets')">📊 프로젝트</button>
         <button type="button" class="tab-btn" onclick="switchTab(event, 'phrases')">📁 문서 보관함</button>
@@ -998,7 +998,7 @@
 
     <div id="master" class="tab-content">
         <div class="page-head">
-            <h2>✏️ TO DO</h2>
+            <h2>✅ 할 일</h2>
             <div class="page-actions">
                 <button type="button" class="btn btn-secondary" onclick="toggleCompletedSection()" id="completedToggleBtn">✅ 완료된 업무 보기</button>
                 <button type="button" class="btn btn-primary" onclick="toggleTaskForm()">➕ 새 업무 등록</button>
@@ -1030,7 +1030,7 @@
         <div class="table-responsive" id="masterTableContainer" style="margin-top: 15px;"></div>
 
         <div id="completedSection" style="display: none; margin-top: 25px; padding-top: 20px; border-top: 2px solid #ecf0f1;">
-            <h2 style="margin-top: 0;">✅ 완료된 업무 모아보기</h2>
+            <h2 style="margin-top: 0;">🗂️ 완료된 업무 모아보기</h2>
             <div class="table-responsive" id="completedTableContainer"></div>
         </div>
     </div>
@@ -1385,7 +1385,7 @@
             contextTargetId = id;
             headerMenu.style.display = 'none';
 
-            // 📌 행 하이라이트는 TO DO(진행중) 목록에서만 쓸 수 있다. 완료된 업무 줄엔 메뉴 자체를 숨긴다.
+            // 📌 행 하이라이트는 할 일(진행중) 목록에서만 쓸 수 있다. 완료된 업무 줄엔 메뉴 자체를 숨긴다.
             const task = tasks.find(t => t.id === id);
             const hlItem = document.getElementById('rowHighlightItem');
             if (task && task.status !== '완료됨') {
@@ -2068,10 +2068,10 @@
                     html += `<div class="cal-event" data-ev="${ev.id}" title="${esc(ev.memo || ev.title)}">${t}${esc(ev.title)}</div>`;
                 });
 
-                // 그다음 TO DO 에서 넘어온 업무
+                // 그다음 할 일 탭에서 넘어온 업무
                 tasks.filter(t => t.dueDate === dateStr).forEach(t => {
                     const done = t.status === '완료됨' ? 'text-decoration: line-through; opacity: 0.5;' : '';
-                    // TO DO 에서 하이라이트한 줄은 캘린더에서도 노랗게 띄운다.
+                    // 할 일 탭에서 하이라이트한 줄은 캘린더에서도 노랗게 띄운다.
                     const hl = t.highlight ? ' hl' : '';
                     html += `<div class="cal-task${hl}" style="${done}" title="${esc(t.content || '')}">${esc(t.content || '')}</div>`;
                 });
@@ -4326,7 +4326,7 @@
                     sub: (x.dueDate ? '마감 ' + esc(x.dueDate) : '마감 없음'),
                     go: 'goTask(' + x.id + ')'
                 }));
-            if (t.length) groups.push(['✏️ TO DO', t]);
+            if (t.length) groups.push(['✅ 할 일', t]);
 
             // 연락처 (번호는 숫자만으로도 찾힌다)
             const c = contacts.filter(x =>
