@@ -222,6 +222,29 @@ fn cursor_work_area(app: &AppHandle) -> (f64, f64, f64, f64) {
     (0.0, 0.0, 1920.0, 1080.0)
 }
 
+/// 창마다 심는다. __TAURI__ 가 아직 없을 수 있으므로 이벤트가 날 때 꺼내 쓴다.
+const ERR_CATCHER: &str = r#"
+window.addEventListener('error', function (e) {
+    try {
+        window.__TAURI__.core.invoke('js_log', {
+            payload: 'JS오류 ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0)
+        });
+    } catch (x) {}
+});
+window.addEventListener('unhandledrejection', function (e) {
+    try {
+        window.__TAURI__.core.invoke('js_log', { payload: '처리 안 된 거부 ' + e.reason });
+    } catch (x) {}
+});
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        window.__TAURI__.core.invoke('js_log', {
+            payload: 'DOM 준비됨 · body 길이 ' + (document.body ? document.body.innerHTML.length : -1)
+        });
+    } catch (x) {}
+});
+"#;
+
 fn focus_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
@@ -246,7 +269,9 @@ fn open_widget_window(app: &AppHandle) {
         .decorations(false)
         .resizable(true)
         .always_on_top(true)
-        .skip_taskbar(true);
+        .skip_taskbar(true)
+        .initialization_script(ERR_CATCHER)
+        .on_page_load(|w, p| log(&format!("[{}] 페이지 {:?} {}", w.label(), p.event(), p.url())));
 
     // 저장해 둔 크기·위치. 모니터를 뺐을 때를 대비해 화면 안에 드는지 본다.
     if let Some(Value::Object(m)) = settings().get("memoWidget") {
@@ -339,6 +364,8 @@ fn open_quick_add(app: &AppHandle) {
         .always_on_top(true)
         .skip_taskbar(true)
         .focused(true)
+        .initialization_script(ERR_CATCHER)
+        .on_page_load(|w, p| log(&format!("[{}] 페이지 {:?} {}", w.label(), p.event(), p.url())))
         .build();
     if let Err(e) = r {
         log(&format!("빠른 등록 창 실패: {}", e));
@@ -762,6 +789,8 @@ fn show_reminder(app: &AppHandle, ev: &Value, late: bool) {
         .always_on_top(true)
         .skip_taskbar(true)
         .focused(true)
+        .initialization_script(ERR_CATCHER)
+        .on_page_load(|w, p| log(&format!("[{}] 페이지 {:?} {}", w.label(), p.event(), p.url())))
         .build();
 
     if let Ok(win) = built {
@@ -943,7 +972,7 @@ fn main() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            load_data, save_sections, get_data_path, open_data_folder,
+            js_log, load_data, save_sections, get_data_path, open_data_folder,
             pick_files, open_file, check_files, show_in_folder,
             open_widget, show_main, set_always_on_top, close_quick_add,
             get_autostart, set_autostart,
