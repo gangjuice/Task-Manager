@@ -254,7 +254,18 @@ fn focus_main(app: &AppHandle) {
 }
 
 /// 메모 위젯 — 스티키 메모처럼 놔둔 자리에 그대로 있어야 한다.
+/// 📌 창 만들기는 메인 스레드에서 부르면 안 된다. 명령과 트레이 메뉴 처리는
+/// 메인 스레드에서 도는데, build() 는 그 메인 이벤트 루프가 한 바퀴 돌아야
+/// 끝난다. 서로 기다려 멈춘다 — 창 껍데기는 뜨는데 안이 하얗게 비는 증상이
+/// 그것이다. 다른 스레드로 넘겨서 부른다.
 fn open_widget_window(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        build_widget(&app);
+    });
+}
+
+fn build_widget(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("widget") {
         log("위젯이 이미 있음 — 다시 보이게 함");
         let _ = w.show();
@@ -344,7 +355,18 @@ fn remember_widget_bounds(app: &AppHandle) {
 }
 
 /// 빠른 등록 — 마우스가 있는 화면 한가운데.
+/// 📌 창 만들기는 메인 스레드에서 부르면 안 된다. 명령과 트레이 메뉴 처리는
+/// 메인 스레드에서 도는데, build() 는 그 메인 이벤트 루프가 한 바퀴 돌아야
+/// 끝난다. 서로 기다려 멈춘다 — 창 껍데기는 뜨는데 안이 하얗게 비는 증상이
+/// 그것이다. 다른 스레드로 넘겨서 부른다.
 fn open_quick_add(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        build_quick_add(&app);
+    });
+}
+
+fn build_quick_add(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("quickadd") {
         let _ = w.show();
         let _ = w.set_focus();
@@ -779,6 +801,14 @@ fn snoozed() -> &'static Mutex<HashMap<u64, u64>> {
 
 /// 알림 창은 화면 한가운데. 포커스를 가져간다 — 놓치면 안 되는 약속이라서.
 fn show_reminder(app: &AppHandle, ev: &Value, late: bool) {
+    let app = app.clone();
+    let ev = ev.clone();
+    tauri::async_runtime::spawn(async move {
+        build_reminder(&app, &ev, late);
+    });
+}
+
+fn build_reminder(app: &AppHandle, ev: &Value, late: bool) {
     if let Some(w) = app.get_webview_window("reminder") {
         let _ = w.close();
     }
