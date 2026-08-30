@@ -58,6 +58,59 @@
         }
     };
 
+    // ── Electron 에만 있는 것 두 가지를 메워 준다 ──────────────────
+
+    // 📌 Electron 에서는 window.close() 가 그 창을 닫는다. WebView2 는
+    // 문서만 비우고 창 껍데기를 남긴다 — 메모 위젯의 ✖ 를 눌렀을 때
+    // 하얀 창이 그대로 남던 것이 이것이다.
+    window.close = function () {
+        try {
+            T.window.getCurrentWindow().close();
+        } catch (e) {
+            console.error('[shim] 창 닫기 실패', e);
+        }
+    };
+
+    // 📌 -webkit-app-region: drag 도 Electron(크로미움 앱 창) 전용이다.
+    // 그대로 두면 테두리 없는 창(메모 위젯 · 빠른 등록 · 알림)을 못 끈다.
+    // 화면 파일은 고치지 않고, 거기 적힌 CSS 를 읽어 같은 규칙을 흉내 낸다.
+    function setupDragRegions() {
+        // 언젠가 WebView2 가 지원하게 되면 이 흉내는 필요 없다.
+        if (window.CSS && CSS.supports && CSS.supports('-webkit-app-region', 'drag')) return;
+
+        const drag = [], nodrag = [];
+        document.querySelectorAll('style').forEach(function (st) {
+            const css = st.textContent || '';
+            const re = /([^{}]+)\{([^{}]*)\}/g;
+            let m;
+            while ((m = re.exec(css))) {
+                const sel = m[1].trim(), body = m[2];
+                if (!sel || sel.charAt(0) === '@') continue;   // @media 등은 건너뛴다
+                if (/-webkit-app-region\s*:\s*no-drag/.test(body)) nodrag.push(sel);
+                else if (/-webkit-app-region\s*:\s*drag/.test(body)) drag.push(sel);
+            }
+        });
+        if (!drag.length) return;
+
+        const dragSel = drag.join(','), noSel = nodrag.join(',');
+        const KEEP = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'LABEL', 'OPTION'];
+
+        document.addEventListener('mousedown', function (e) {
+            if (e.button !== 0 || !e.target || !e.target.closest) return;
+            if (KEEP.indexOf(e.target.tagName) >= 0) return;      // 눌려야 하는 것
+            if (noSel && e.target.closest(noSel)) return;
+            if (!e.target.closest(dragSel)) return;
+            e.preventDefault();
+            try { T.window.getCurrentWindow().startDragging(); } catch (x) {}
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupDragRegions);
+    } else {
+        setupDragRegions();
+    }
+
     // 페이지의 인라인 스크립트가 부르는 그 한 줄.
     window.require = function (mod) {
         if (mod === 'electron') return { ipcRenderer: ipcRenderer };
