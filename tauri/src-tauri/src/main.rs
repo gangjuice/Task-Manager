@@ -66,6 +66,9 @@ fn read_doc() -> Map<String, Value> {
         Ok(r) => r,
         Err(_) => return Map::new(), // 아직 파일이 없으면 빈 문서로 시작한다
     };
+    // 📌 메모장 등으로 이 파일을 한 번 저장하면 앞에 BOM 이 붙는다.
+    // 그대로 넘기면 JSON 이 깨진 것으로 보여 자료가 통째로 비어 보인다.
+    let raw = raw.strip_prefix('\u{feff}').unwrap_or(&raw).to_string();
     match serde_json::from_str::<Value>(&raw) {
         Ok(Value::Object(m)) => m,
         _ => {
