@@ -469,7 +469,7 @@
 
                 <div class="form-group">
                     <label>고객번호</label>
-                    <input type="text" id="cf_customerNo" placeholder="ex) 1234567890">
+                    <input type="text" id="cf_customerNo" placeholder="ex) 1234567890" oninput="stripToDigits(this)">
                 </div>
 
                 <div class="form-group full-width" id="cf_firstNoteRow">
@@ -2152,6 +2152,30 @@
         // 📌 번호는 숫자만 저장한다. 010-1234-5678 과 01012345678 이 다른 사람이 되면 중복 감지가 무너진다.
         function normalizePhone(v) { return String(v == null ? '' : v).replace(/[^0-9]/g, ''); }
 
+        // 📌 고객번호는 00-0000-0000 꼴로 복사해 와도 숫자만 남긴다.
+        // 지운 만큼 커서가 끝으로 튀지 않도록 앞쪽 숫자 개수로 자리를 되찾는다.
+        function stripToDigits(el) {
+            const before = el.value;
+            const after = before.replace(/[^0-9]/g, '');
+            if (after === before) return;
+            const keep = before.slice(0, el.selectionStart).replace(/[^0-9]/g, '').length;
+            el.value = after;
+            try { el.setSelectionRange(keep, keep); } catch (e) {}
+        }
+
+        // 프로젝트 표의 고객번호 열에 쓴다. 여기는 아무 값이나 들어올 수 있으므로,
+        // 숫자와 구분기호로만 된 값일 때에만 손댄다. 글자가 섞였으면 쓴 그대로 둔다.
+        function isCustomerNoCol(col) {
+            return !!col && String(col.name || '').replace(/\s/g, '').indexOf('고객번호') >= 0;
+        }
+
+        function cellValueFor(col, v) {
+            if (!isCustomerNoCol(col)) return v;
+            const t = String(v == null ? '' : v).trim();
+            if (!t || !/^[0-9\s.\-]+$/.test(t)) return v;
+            return t.replace(/[^0-9]/g, '');
+        }
+
         function formatPhone(v) {
             const d = normalizePhone(v);
             if (!d) return '';
@@ -2200,6 +2224,8 @@
                 .filter(Boolean).join(' ').toLowerCase();
             if (hay.includes(q)) return true;
             if (qDigits && (c.phones || []).some(p => normalizePhone(p.value).includes(qDigits))) return true;
+            // 예전에 하이픈째 넣어 둔 고객번호도, 하이픈을 넣고 찾는 경우도 걸리게 한다.
+            if (qDigits && normalizePhone(c.customerNo).includes(qDigits)) return true;
             return (c.notes || []).some(n => String(n.text || '').toLowerCase().includes(q));
         }
 
@@ -2400,7 +2426,7 @@
             const title = document.getElementById('cf_title').value.trim();
             const org   = document.getElementById('cf_org').value.trim();
             const email = document.getElementById('cf_email').value.trim();
-            const customerNo = document.getElementById('cf_customerNo').value.trim();
+            const customerNo = normalizePhone(document.getElementById('cf_customerNo').value);
             const phones = draftPhones
                 .filter(p => normalizePhone(p.value))
                 .map(p => ({ label: p.label, value: normalizePhone(p.value) }));
@@ -3196,9 +3222,16 @@
             // 어느 칸에든 걸리면 그 줄을 보여준다.
             const q = sheetSearch.trim().toLowerCase();
             if (q) {
+                // 📌 고객번호는 하이픈을 빼고 저장한다. 찾을 때 하이픈을 넣어도 걸리도록
+                // 숫자만으로도 한 번 더 대조한다 (옛 자료에 하이픈이 남아 있어도 걸린다).
+                const qd = q.replace(/[^0-9]/g, '');
+                const digitsOnly = qd.length >= 4 && /^[0-9\s.\-]+$/.test(q);
                 idx = idx.filter(i => s.columns.some(col => {
                     const v = s.rows[i].cells[col.id];
-                    return v != null && String(v).toLowerCase().includes(q);
+                    if (v == null) return false;
+                    const t = String(v).toLowerCase();
+                    if (t.includes(q)) return true;
+                    return digitsOnly && t.replace(/[^0-9]/g, '').includes(qd);
                 }));
             }
 
@@ -3821,10 +3854,11 @@
             const col = s && s.columns[c];
             const real = realRow(displayR);
             if (!col || real === undefined || !s.rows[real]) return false;
+            const v = cellValueFor(col, value);
             const before = s.rows[real].cells[col.id];
-            if (String(before == null ? '' : before) === String(value)) return false;
+            if (String(before == null ? '' : before) === String(v)) return false;
             pushUndo();
-            s.rows[real].cells[col.id] = value;
+            s.rows[real].cells[col.id] = v;
             s.updatedAt = nowStamp();
             saveSheets();
             return true;
@@ -4022,7 +4056,9 @@
                 });
                 grid.slice(1).forEach(line => {
                     const cells = {};
-                    line.forEach((v, i) => { if (s.columns[i]) cells[s.columns[i].id] = v; });
+                    line.forEach((v, i) => {
+                        if (s.columns[i]) cells[s.columns[i].id] = cellValueFor(s.columns[i], v);
+                    });
                     s.rows.push({ id: uid('r'), cells: cells });
                 });
                 s.updatedAt = nowStamp();
@@ -4046,7 +4082,7 @@
                     if (!col) { ignored++; return; }
                     s.rows[r].cells[col.id] = col.type === 'check'
                         ? ['Y', 'y', 'TRUE', 'true', '1', 'O', 'ㅇ'].includes(String(v).trim())
-                        : v;
+                        : cellValueFor(col, v);
                 });
             });
 
@@ -4249,7 +4285,13 @@
         }
 
         function hit(text, q) {
-            return String(text == null ? '' : text).toLowerCase().includes(q);
+            const t = String(text == null ? '' : text).toLowerCase();
+            if (t.includes(q)) return true;
+            // 숫자와 구분기호로만 친 검색어(고객번호 · 전화번호)는 숫자로도 맞춰 본다.
+            if (!/^[0-9\s.\-]+$/.test(q)) return false;
+            const qd = q.replace(/[^0-9]/g, '');
+            if (qd.length < 4) return false;
+            return t.replace(/[^0-9]/g, '').includes(qd);
         }
 
         // 찾은 글자 앞뒤를 잘라 보여준다. 어디서 걸렸는지 보여야 고르기 쉽다.
