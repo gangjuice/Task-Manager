@@ -24,17 +24,16 @@ use tauri_plugin_opener::OpenerExt;
 const DEFAULT_HOTKEY: &str = "F4";
 
 /// 📌 창이 안 뜨는 것 같은 문제는 화면에 아무것도 안 남는다. 파일로 남긴다.
-/// %APPDATA%\Task Manager	auri.log
+/// %APPDATA% 아래 Task Manager 폴더의 tauri.log
 fn log(msg: &str) {
     use std::io::Write;
-    let line = format!("{} {}
-", Local::now().format("%H:%M:%S"), msg);
-    let p = data_dir().join("tauri.log");
     let _ = fs::create_dir_all(data_dir());
+    let p = data_dir().join("tauri.log");
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(p) {
-        let _ = f.write_all(line.as_bytes());
+        let _ = writeln!(f, "{} {}", Local::now().format("%H:%M:%S"), msg);
     }
 }
+
 
 // ══════════════════════════════════════════════════════════════════
 // 데이터 파일
