@@ -626,7 +626,11 @@ function showReminder(ev, late) {
 
     if (reminderWindow && !reminderWindow.isDestroyed()) reminderWindow.close();
 
-    reminderWindow = new BrowserWindow({
+    // 📌 알림이 연달아 오면(같은 시각에 두 일정 등) 앞 창이 뜨기도 전에 닫히고 새 창이 뜬다.
+    // 이때 'ready-to-show' 클로저가 모듈 변수 reminderWindow 를 그대로 읽으면, 이미 다음
+    // 알림으로 바뀌었거나(다른 창을 잘못 표시) null 이 된 뒤라(여기서 크래시) 사고가 난다.
+    // 그래서 이 창 자기 자신(win)을 따로 붙잡아 쓴다.
+    const win = new BrowserWindow({
         width: W, height: H,
         x: Math.round(b.x + (b.width - W) / 2),
         y: Math.round(b.y + (b.height - H) / 2),
@@ -634,16 +638,18 @@ function showReminder(ev, late) {
         alwaysOnTop: true, skipTaskbar: true,
         webPreferences: { nodeIntegration: true, contextIsolation: false }
     });
-    reminderWindow.setAlwaysOnTop(true, 'screen-saver');
-    reminderWindow.loadFile('reminder.html');
-    reminderWindow.once('ready-to-show', () => {
-        reminderWindow.show();
-        reminderWindow.focus();
-        reminderWindow.webContents.send('reminder', {
+    reminderWindow = win;
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.loadFile('reminder.html');
+    win.once('ready-to-show', () => {
+        if (win.isDestroyed()) return;   // 뜨기 전에 이미 닫혔으면 아무것도 하지 않는다
+        win.show();
+        win.focus();
+        win.webContents.send('reminder', {
             id: ev.id, title: ev.title, memo: ev.memo, date: ev.date, time: ev.time, late: !!late
         });
     });
-    reminderWindow.on('closed', () => { reminderWindow = null; });
+    win.on('closed', () => { if (reminderWindow === win) reminderWindow = null; });
 
     if (tray) {
         try {
